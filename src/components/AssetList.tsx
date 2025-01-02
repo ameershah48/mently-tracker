@@ -166,7 +166,16 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
             <TableHead>Total Return
               <div className="text-xs font-normal text-gray-500">Realized + Unrealized</div>
             </TableHead>
-            <TableHead>Last Transaction Date</TableHead>
+            <TableHead>
+              <Button
+                variant="ghost"
+                onClick={handleDateSort}
+                className="flex items-center gap-1"
+              >
+                Last Transaction Date
+                <ArrowUpDown className="h-4 w-4" />
+              </Button>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -231,7 +240,12 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {transactions.map(transaction => (
+                            {transactions
+                              .sort((a, b) => {
+                                const direction = sortDirection === 'asc' ? 1 : -1;
+                                return direction * (new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+                              })
+                              .map(transaction => (
                               <TableRow key={transaction.id}>
                                 <TableCell>
                                   <span className={transaction.transactionType === 'BUY' ? 'text-green-600' : 'text-red-600'}>
