@@ -32,10 +32,10 @@ export function savePriceHistory(data: PriceHistoryData): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-export function addPriceEntry(symbol: string, price: number): void {
+export function addPriceEntry(symbol: string, price: number, date?: Date): void {
   const data = loadPriceHistory();
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const entryDate = date || new Date();
+  const entryMonth = `${entryDate.getFullYear()}-${String(entryDate.getMonth() + 1).padStart(2, '0')}`;
 
   let assetHistory = data.assets.find(a => a.symbol === symbol);
   if (!assetHistory) {
@@ -48,19 +48,19 @@ export function addPriceEntry(symbol: string, price: number): void {
 
   // Check if we already have an entry for this month
   const hasEntryForMonth = assetHistory.prices.some(entry => {
-    const entryDate = new Date(entry.date);
-    const entryMonth = `${entryDate.getFullYear()}-${String(entryDate.getMonth() + 1).padStart(2, '0')}`;
-    return entryMonth === currentMonth;
+    const existingDate = new Date(entry.date);
+    const existingMonth = `${existingDate.getFullYear()}-${String(existingDate.getMonth() + 1).padStart(2, '0')}`;
+    return existingMonth === entryMonth;
   });
 
   // Only add new entry if it's a new month or the first entry
   if (!hasEntryForMonth || assetHistory.prices.length === 0) {
     assetHistory.prices.push({
-      date: now.toISOString(),
+      date: entryDate.toISOString(),
       price
     });
 
-    data.lastUpdated = now.toISOString();
+    data.lastUpdated = new Date().toISOString();
     savePriceHistory(data);
   }
 }

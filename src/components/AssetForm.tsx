@@ -5,6 +5,7 @@ import { AssetFormData, Currency } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
 import { Button } from './ui/button';
+import { fetchHistoricalGoldPrices } from '../utils/prices';
 import {
   Select,
   SelectContent,
@@ -12,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/Select';
+import { Loader2 } from "lucide-react";
 
 interface AssetFormProps {
   onSubmit: (data: AssetFormData) => Promise<void>;
@@ -19,6 +21,7 @@ interface AssetFormProps {
 }
 
 export function AssetForm({ onSubmit, onError }: AssetFormProps) {
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<AssetFormData>({
     symbol: 'BTC',
     name: 'Bitcoin',
@@ -30,8 +33,17 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       await saveAsset(formData);
+      
+      // If this is a gold asset, fetch historical prices in the background
+      if (formData.symbol === 'GOLD') {
+        fetchHistoricalGoldPrices(formData.purchaseDate).catch(error => {
+          console.error('Failed to fetch historical gold prices:', error);
+        });
+      }
+      
       await onSubmit(formData);
       // Reset form
       setFormData({
@@ -44,6 +56,8 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
       });
     } catch (error) {
       onError(error as Error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -133,7 +147,9 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         <Input
           id="date"
           type="date"
-          value={formData.purchaseDate.toISOString().split('T')[0]}
+          value={formData.purchaseDate instanceof Date && !isNaN(formData.purchaseDate.getTime()) 
+            ? formData.purchaseDate.toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0]}
           onChange={e => setFormData(prev => ({
             ...prev,
             purchaseDate: new Date(e.target.value)
@@ -141,8 +157,15 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         />
       </div>
 
-      <Button type="submit" className="w-full">
-        Add Asset
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Adding Asset...
+          </>
+        ) : (
+          'Add Asset'
+        )}
       </Button>
     </form>
   );

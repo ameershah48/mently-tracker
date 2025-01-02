@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Asset, EditAssetData, Currency } from '../types/asset';
+import { EditAssetData, Currency, Asset } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
 import { Button } from './ui/button';
+import { fetchHistoricalGoldPrices } from '../utils/prices';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from './ui/dialog';
 import {
   Select,
@@ -29,12 +29,19 @@ export function EditAssetDialog({ asset, onSave, onCancel }: EditAssetDialogProp
     purchaseQuantity: asset.purchaseQuantity,
     purchasePrice: asset.purchasePrice,
     purchaseCurrency: asset.purchaseCurrency,
-    purchaseDate: asset.purchaseDate,
+    purchaseDate: new Date(asset.purchaseDate),
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // If this is a gold asset and the purchase date has changed,
+      // fetch historical prices from the new purchase date
+      if (asset.symbol === 'GOLD' && 
+          formData.purchaseDate.getTime() !== new Date(asset.purchaseDate).getTime()) {
+        await fetchHistoricalGoldPrices(formData.purchaseDate);
+      }
+      
       await onSave(formData);
       onCancel();
     } catch (error) {
@@ -54,7 +61,7 @@ export function EditAssetDialog({ asset, onSave, onCancel }: EditAssetDialogProp
             <Input
               id="quantity"
               type="number"
-              step={asset.symbol === 'GOLD' ? '0.01' : '0.00000001'}
+              step="0.00000001"
               min="0"
               value={formData.purchaseQuantity}
               onChange={e => setFormData(prev => ({
@@ -70,7 +77,7 @@ export function EditAssetDialog({ asset, onSave, onCancel }: EditAssetDialogProp
               <Input
                 id="price"
                 type="number"
-                step="0.01"
+                step="0.00000001"
                 min="0"
                 value={formData.purchasePrice}
                 onChange={e => setFormData(prev => ({
@@ -102,7 +109,9 @@ export function EditAssetDialog({ asset, onSave, onCancel }: EditAssetDialogProp
             <Input
               id="date"
               type="date"
-              value={formData.purchaseDate.toISOString().split('T')[0]}
+              value={formData.purchaseDate instanceof Date 
+                ? formData.purchaseDate.toISOString().split('T')[0]
+                : new Date(formData.purchaseDate).toISOString().split('T')[0]}
               onChange={e => setFormData(prev => ({
                 ...prev,
                 purchaseDate: new Date(e.target.value)
@@ -110,14 +119,14 @@ export function EditAssetDialog({ asset, onSave, onCancel }: EditAssetDialogProp
             />
           </div>
 
-          <DialogFooter>
+          <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
             <Button type="submit">
               Save Changes
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

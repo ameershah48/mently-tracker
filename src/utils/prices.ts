@@ -1,4 +1,5 @@
 import { CryptoSymbol } from '../types/crypto';
+import { addPriceEntry } from './priceHistory';
 
 type PriceMap = Record<CryptoSymbol, number>;
 
@@ -7,6 +8,56 @@ let lastGoldFetchTime: number | null = null;
 const GOLD_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 let lastFetchTime: number | null = null;
+
+export async function fetchHistoricalGoldPrices(startDate: Date): Promise<void> {
+  try {
+    const API_KEY = import.meta.env.VITE_GOLD_API_KEY;
+    if (!API_KEY) {
+      throw new Error('Gold API key not found in environment variables');
+    }
+
+    // Get first day of the start month
+    const firstDayOfMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    // Get last day of the current month
+    const currentDate = new Date();
+    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+    const dates = [firstDayOfMonth, lastDayOfMonth];
+
+    // Fetch prices for first day of start month and last day of current month
+    for (const date of dates) {
+      const formattedDate = date.toISOString().split('T')[0];
+      
+      try {
+        const response = await fetch(`https://www.goldapi.io/api/XAU/USD/${formattedDate}`, {
+          headers: {
+            'x-access-token': API_KEY
+          }
+        });
+        
+        if (!response.ok) {
+          console.warn(`Failed to fetch gold price for ${formattedDate}`);
+          continue;
+        }
+
+        const data = await response.json();
+        if (data && data.price) {
+          // Price is in USD per troy ounce, convert to grams
+          const goldPrice = data.price / 31.1034768;
+          // Store the historical price
+          addPriceEntry('GOLD', goldPrice, new Date(formattedDate));
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch gold price for ${formattedDate}:`, error);
+      }
+
+      // Add a small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  } catch (error) {
+    console.error('Failed to fetch historical gold prices:', error);
+  }
+}
 
 export async function fetchPrices(symbols: CryptoSymbol[]): Promise<PriceMap> {
   const now = Date.now();
@@ -46,7 +97,7 @@ export async function fetchPrices(symbols: CryptoSymbol[]): Promise<PriceMap> {
         prices.GOLD = lastGoldPrice;
       } else {
         try {
-          const API_KEY = process.env.GOLD_API_KEY;
+          const API_KEY = import.meta.env.VITE_GOLD_API_KEY;
           if (!API_KEY) {
             throw new Error('Gold API key not found in environment variables');
           }
@@ -64,6 +115,8 @@ export async function fetchPrices(symbols: CryptoSymbol[]): Promise<PriceMap> {
             // Update cache
             lastGoldPrice = goldPrice;
             lastGoldFetchTime = now;
+            // Store the current price in history
+            addPriceEntry('GOLD', goldPrice);
           } else {
             // Use cached price if available, otherwise fallback
             prices.GOLD = lastGoldPrice ?? 60;
