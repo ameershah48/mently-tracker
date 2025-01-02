@@ -55,10 +55,14 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
       };
 
       // Update quantity based on transaction type
-      const quantityChange = asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity;
+      const quantityChange = asset.transactionType === 'SELL' || asset.transactionType === 'CONVERT' 
+        ? -asset.purchaseQuantity 
+        : asset.transactionType === 'CONVERT_FROM'
+        ? asset.purchaseQuantity
+        : asset.purchaseQuantity;
       existing.netQuantity += quantityChange;
 
-      // Only add to total buy value for buy transactions (not EARN)
+      // Only add to total buy value for buy transactions (not EARN, CONVERT, or CONVERT_FROM)
       if (asset.transactionType === 'BUY') {
         const convertedBuyValue = convertAmount(
           asset.purchasePrice,
@@ -102,7 +106,8 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
 
     // Process each transaction in chronological order
     sortedTransactions.forEach(transaction => {
-      if (transaction.transactionType === 'BUY' || transaction.transactionType === 'EARN') {
+      if (transaction.transactionType === 'BUY' || transaction.transactionType === 'EARN' || 
+          transaction.transactionType === 'CONVERT' || transaction.transactionType === 'CONVERT_FROM') {
         // Add to available lots
         availableLots.push({
           quantity: transaction.purchaseQuantity,

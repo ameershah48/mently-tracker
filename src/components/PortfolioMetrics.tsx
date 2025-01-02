@@ -71,8 +71,8 @@ export function PortfolioMetrics({ assets }: PortfolioMetricsProps) {
     const totalEarnings = assets
       .filter(asset => asset.transactionType === 'EARN')
       .reduce((total, asset) => {
-        const earnValue = asset.purchaseQuantity;
-        return total + convertAmount(earnValue, asset.purchaseCurrency, displayCurrency);
+        const earnValue = asset.purchaseQuantity * asset.currentPrice;
+        return total + convertAmount(earnValue, asset.currentPriceCurrency, displayCurrency);
       }, 0);
 
     return {

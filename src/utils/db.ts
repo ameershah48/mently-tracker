@@ -13,9 +13,9 @@ export function saveAsset(data: AssetFormData): void {
   
   // For sell transactions, verify we have enough assets to sell
   if (data.transactionType === 'SELL') {
-    // Get total quantity of this asset from previous buys
+    // Get total quantity of this asset from previous buys and earnings
     const totalBought = assets
-      .filter(a => a.symbol === data.symbol && a.transactionType === 'BUY')
+      .filter(a => a.symbol === data.symbol && (a.transactionType === 'BUY' || a.transactionType === 'EARN'))
       .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
       
     // Get total quantity already sold

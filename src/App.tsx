@@ -13,28 +13,6 @@ import { fetchPrices } from './utils/prices';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 
-function TotalValueDisplay({ assets }: { assets: Asset[] }) {
-  const { displayCurrency, convertAmount } = useCurrency();
-  
-  return (
-    <div className="flex items-center bg-muted px-4 py-2 rounded-lg">
-      <Wallet className="h-5 w-5 text-muted-foreground mr-2" />
-      <span className="text-sm font-medium text-muted-foreground">Total Value:</span>
-      <span className="ml-2 font-bold">
-        {new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: displayCurrency,
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(assets.reduce((total, asset) => {
-          const valueInUSD = asset.currentPrice * Math.max(0, asset.purchaseQuantity * (asset.transactionType === 'SELL' ? -1 : 1));
-          return total + convertAmount(valueInUSD, 'USD', displayCurrency);
-        }, 0))}
-      </span>
-    </div>
-  );
-}
-
 function App() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -250,7 +228,6 @@ function App() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>Portfolio Distribution</CardTitle>
-                  <TotalValueDisplay assets={assets} />
                 </div>
               </CardHeader>
               <CardContent>
