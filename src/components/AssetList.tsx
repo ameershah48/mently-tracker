@@ -248,7 +248,11 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                               .map(transaction => (
                               <TableRow key={transaction.id}>
                                 <TableCell>
-                                  <span className={transaction.transactionType === 'BUY' ? 'text-green-600' : 'text-red-600'}>
+                                  <span className={
+                                    transaction.transactionType === 'BUY' ? 'text-green-600' : 
+                                    transaction.transactionType === 'SELL' ? 'text-red-600' : 
+                                    'text-blue-600'
+                                  }>
                                     {transaction.transactionType}
                                   </span>
                                 </TableCell>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Wallet } from 'lucide-react';
+import { LineChart, Wallet, Download, Upload } from 'lucide-react';
 import { Asset, AssetFormData, EditAssetData, Currency } from './types/asset';
 import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
@@ -11,6 +11,7 @@ import { getAllAssets, deleteAsset, updateAssetPrice, updateAsset } from './util
 import { fetchPrices } from './utils/prices';
 import { addPriceEntry } from './utils/priceHistory';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { Button } from "./components/ui/button";
 
 function TotalProfitDisplay({ assets }: { assets: Asset[] }) {
   const { displayCurrency, convertAmount } = useCurrency();
@@ -47,7 +48,7 @@ function TotalProfitDisplay({ assets }: { assets: Asset[] }) {
       };
 
       // Update quantity based on transaction type
-      const quantityChange = asset.transactionType === 'BUY' ? asset.purchaseQuantity : -asset.purchaseQuantity;
+      const quantityChange = asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity;
       existing.netQuantity += quantityChange;
 
       // Only add to total buy value for buy transactions
@@ -235,6 +236,58 @@ function App() {
     }
   };
 
+  const handleExport = () => {
+    const exportData = {
+      assets: assets,
+      exportDate: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `asset-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importData = JSON.parse(text);
+      
+      if (!importData.assets || !Array.isArray(importData.assets)) {
+        throw new Error('Invalid import file format');
+      }
+
+      // Import each asset
+      for (const asset of importData.assets) {
+        await handleAddAsset({
+          symbol: asset.symbol,
+          name: asset.name,
+          purchasePrice: asset.purchasePrice,
+          purchaseQuantity: asset.purchaseQuantity,
+          purchaseDate: new Date(asset.purchaseDate),
+          purchaseCurrency: asset.purchaseCurrency,
+          transactionType: asset.transactionType
+        });
+      }
+
+      await loadAssets();
+    } catch (error) {
+      console.error('Failed to import assets:', error);
+      alert('Failed to import assets. Please check the file format.');
+    }
+    
+    // Reset the input
+    event.target.value = '';
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -249,20 +302,47 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card className="mb-8">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div className="flex items-center">
-                <LineChart className="h-8 w-8 text-primary mr-2" />
-                <div className="flex items-center gap-4">
-                  <CardTitle>Asset Tracker</CardTitle>
-                  <CurrencySelector />
-                </div>
+              <div className="flex items-center gap-4">
+                <LineChart className="h-8 w-8 text-primary" />
+                <CardTitle>Asset Tracker</CardTitle>
+                <CurrencySelector />
               </div>
-              <div className="flex flex-col items-end">
-                <TotalProfitDisplay assets={assets} />
-                {lastUpdated && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Last updated: {lastUpdated.toLocaleTimeString()}
-                  </p>
-                )}
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExport}
+                    className="flex items-center gap-2 min-w-[100px]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImport}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2 min-w-[100px]"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Import
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <TotalProfitDisplay assets={assets} />
+                  {lastUpdated && (
+                    <p className="text-xs text-muted-foreground mt-1 text-right">
+                      Last updated: {lastUpdated.toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
               </div>
             </CardHeader>
           </Card>
