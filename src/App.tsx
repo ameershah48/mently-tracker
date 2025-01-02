@@ -1,127 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Wallet, Download, Upload } from 'lucide-react';
-import { Asset, AssetFormData, EditAssetData, Currency } from './types/asset';
+import { Asset, AssetFormData, EditAssetData } from './types/asset';
 import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
 import { AssetChart } from './components/AssetChart';
 import { AssetPieChart } from './components/AssetPieChart';
+import { PortfolioMetrics } from './components/PortfolioMetrics';
 import { CurrencyProvider, useCurrency } from './contexts/CurrencyContext';
 import { CurrencySelector } from './components/CurrencySelector';
 import { getAllAssets, deleteAsset, updateAssetPrice, updateAsset } from './utils/db';
 import { fetchPrices } from './utils/prices';
-import { addPriceEntry } from './utils/priceHistory';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
-
-function TotalProfitDisplay({ assets }: { assets: Asset[] }) {
-  const { displayCurrency, convertAmount } = useCurrency();
-
-  const formatValue = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: displayCurrency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  const calculateTotalProfit = () => {
-    // First calculate net positions for each asset
-    const positions = new Map<string, {
-      symbol: string;
-      netQuantity: number;
-      totalBuyValue: number;
-      totalBuyCurrency: Currency;
-      currentPrice: number;
-      currentPriceCurrency: Currency;
-    }>();
-
-    assets.forEach(asset => {
-      const key = asset.symbol;
-      const existing = positions.get(key) || {
-        symbol: asset.symbol,
-        netQuantity: 0,
-        totalBuyValue: 0,
-        totalBuyCurrency: asset.purchaseCurrency,
-        currentPrice: asset.currentPrice,
-        currentPriceCurrency: asset.currentPriceCurrency,
-      };
-
-      // Update quantity based on transaction type
-      const quantityChange = asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity;
-      existing.netQuantity += quantityChange;
-
-      // Only add to total buy value for buy transactions
-      if (asset.transactionType === 'BUY') {
-        const convertedBuyValue = convertAmount(
-          asset.purchasePrice,
-          asset.purchaseCurrency,
-          existing.totalBuyCurrency
-        );
-        existing.totalBuyValue += convertedBuyValue;
-      }
-
-      positions.set(key, existing);
-    });
-
-    // Calculate realized gains from SELL transactions
-    const realizedGains = assets
-      .filter(asset => asset.transactionType === 'SELL')
-      .reduce((total, sale) => {
-        const position = positions.get(sale.symbol);
-        if (!position) return total;
-
-        const saleValue = convertAmount(
-          sale.purchasePrice,
-          sale.purchaseCurrency,
-          displayCurrency
-        );
-        
-        // Calculate cost basis using average cost from net position
-        const costBasis = (position.totalBuyValue / position.netQuantity) * sale.purchaseQuantity;
-        const convertedCostBasis = convertAmount(
-          costBasis,
-          position.totalBuyCurrency,
-          displayCurrency
-        );
-        
-        return total + (saleValue - convertedCostBasis);
-      }, 0);
-
-    // Calculate unrealized gains on remaining positions
-    const unrealizedGains = Array.from(positions.values()).reduce((total, position) => {
-      if (position.netQuantity <= 0) return total;
-
-      const currentValue = convertAmount(
-        position.currentPrice * position.netQuantity,
-        position.currentPriceCurrency,
-        displayCurrency
-      );
-      
-      const purchaseValue = convertAmount(
-        position.totalBuyValue,
-        position.totalBuyCurrency,
-        displayCurrency
-      );
-
-      return total + (currentValue - purchaseValue);
-    }, 0);
-
-    return realizedGains + unrealizedGains;
-  };
-
-  const totalProfit = calculateTotalProfit();
-
-  return (
-    <div className="flex items-center bg-muted px-4 py-2 rounded-lg">
-      <Wallet className="h-5 w-5 text-muted-foreground mr-2" />
-      <span className="text-sm font-medium text-muted-foreground">Total Profit:</span>
-      <span className={`ml-2 font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-        {formatValue(totalProfit)}
-      </span>
-    </div>
-  );
-}
 
 function TotalValueDisplay({ assets }: { assets: Asset[] }) {
   const { displayCurrency, convertAmount } = useCurrency();
@@ -335,70 +225,64 @@ function App() {
                     </Button>
                   </div>
                 </div>
-                <div className="flex flex-col">
-                  <TotalProfitDisplay assets={assets} />
-                  {lastUpdated && (
-                    <p className="text-xs text-muted-foreground mt-1 text-right">
-                      Last updated: {lastUpdated.toLocaleTimeString()}
-                    </p>
-                  )}
-                </div>
               </div>
             </CardHeader>
           </Card>
 
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Add Asset</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AssetForm
-                    onSubmit={handleAddAsset}
-                    onError={(error) => console.error('Form error:', error)}
-                  />
-                </CardContent>
-              </Card>
-              {assets.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>Portfolio Distribution</CardTitle>
-                      <TotalValueDisplay assets={assets} />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <AssetPieChart assets={assets} />
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            {assets.length > 0 ? (
-              <>
-                <AssetChart assets={assets} />
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Asset List</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <AssetList
-                      assets={assets}
-                      onDelete={handleDeleteAsset}
-                      onEdit={handleEditAsset}
-                    />
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <p className="text-muted-foreground">No assets added yet. Add your first asset above!</p>
-                </CardContent>
-              </Card>
-            )}
+          <div className="mb-8">
+            <PortfolioMetrics assets={assets} />
           </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <Card>
+              <CardHeader>
+                <CardTitle>Add Asset</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AssetForm
+                  onSubmit={handleAddAsset}
+                  onError={(error) => console.error('Form error:', error)}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Portfolio Distribution</CardTitle>
+                  <TotalValueDisplay assets={assets} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <AssetPieChart assets={assets} />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mb-8">
+            <AssetChart assets={assets} />
+          </div>
+
+          {assets.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Asset List</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AssetList
+                  assets={assets}
+                  onDelete={handleDeleteAsset}
+                  onEdit={handleEditAsset}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-12">
+                <p className="text-muted-foreground">No assets added yet. Add your first asset above!</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </CurrencyProvider>
