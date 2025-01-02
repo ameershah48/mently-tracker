@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Wallet } from 'lucide-react';
-import { Asset, AssetFormData, EditAssetData } from './types/asset';
+import { Asset, AssetFormData, EditAssetData, Currency } from './types/asset';
 import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
 import { AssetChart } from './components/AssetChart';
@@ -25,47 +25,85 @@ function TotalProfitDisplay({ assets }: { assets: Asset[] }) {
   };
 
   const calculateTotalProfit = () => {
-    // First calculate realized gains from SELL transactions
+    // First calculate net positions for each asset
+    const positions = new Map<string, {
+      symbol: string;
+      netQuantity: number;
+      totalBuyValue: number;
+      totalBuyCurrency: Currency;
+      currentPrice: number;
+      currentPriceCurrency: Currency;
+    }>();
+
+    assets.forEach(asset => {
+      const key = asset.symbol;
+      const existing = positions.get(key) || {
+        symbol: asset.symbol,
+        netQuantity: 0,
+        totalBuyValue: 0,
+        totalBuyCurrency: asset.purchaseCurrency,
+        currentPrice: asset.currentPrice,
+        currentPriceCurrency: asset.currentPriceCurrency,
+      };
+
+      // Update quantity based on transaction type
+      const quantityChange = asset.transactionType === 'BUY' ? asset.purchaseQuantity : -asset.purchaseQuantity;
+      existing.netQuantity += quantityChange;
+
+      // Only add to total buy value for buy transactions
+      if (asset.transactionType === 'BUY') {
+        const convertedBuyValue = convertAmount(
+          asset.purchasePrice,
+          asset.purchaseCurrency,
+          existing.totalBuyCurrency
+        );
+        existing.totalBuyValue += convertedBuyValue;
+      }
+
+      positions.set(key, existing);
+    });
+
+    // Calculate realized gains from SELL transactions
     const realizedGains = assets
       .filter(asset => asset.transactionType === 'SELL')
       .reduce((total, sale) => {
+        const position = positions.get(sale.symbol);
+        if (!position) return total;
+
         const saleValue = convertAmount(
           sale.purchasePrice,
           sale.purchaseCurrency,
           displayCurrency
         );
         
-        // Calculate cost basis for this sale
-        const buyTransactions = assets.filter(a => 
-          a.symbol === sale.symbol && 
-          a.transactionType === 'BUY'
+        // Calculate cost basis using average cost from net position
+        const costBasis = (position.totalBuyValue / position.netQuantity) * sale.purchaseQuantity;
+        const convertedCostBasis = convertAmount(
+          costBasis,
+          position.totalBuyCurrency,
+          displayCurrency
         );
-        const totalBuyValue = buyTransactions.reduce((sum, buy) => 
-          sum + convertAmount(buy.purchasePrice, buy.purchaseCurrency, displayCurrency), 0
-        );
-        const totalBuyQuantity = buyTransactions.reduce((sum, buy) => sum + buy.purchaseQuantity, 0);
-        const avgCostPerUnit = totalBuyValue / totalBuyQuantity;
-        const costBasis = avgCostPerUnit * sale.purchaseQuantity;
         
-        return total + (saleValue - costBasis);
+        return total + (saleValue - convertedCostBasis);
       }, 0);
 
-    // Then calculate unrealized gains on current holdings
-    const unrealizedGains = assets.reduce((total, asset) => {
-      if (asset.transactionType === 'BUY') {
-        const currentValue = convertAmount(
-          asset.currentPrice * asset.purchaseQuantity,
-          asset.currentPriceCurrency,
-          displayCurrency
-        );
-        const purchaseValue = convertAmount(
-          asset.purchasePrice,
-          asset.purchaseCurrency,
-          displayCurrency
-        );
-        return total + (currentValue - purchaseValue);
-      }
-      return total;
+    // Calculate unrealized gains on remaining positions
+    const unrealizedGains = Array.from(positions.values()).reduce((total, position) => {
+      if (position.netQuantity <= 0) return total;
+
+      const currentValue = convertAmount(
+        position.currentPrice * position.netQuantity,
+        position.currentPriceCurrency,
+        displayCurrency
+      );
+      
+      const purchaseValue = convertAmount(
+        position.totalBuyValue,
+        position.totalBuyCurrency,
+        displayCurrency
+      );
+
+      return total + (currentValue - purchaseValue);
     }, 0);
 
     return realizedGains + unrealizedGains;

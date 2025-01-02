@@ -158,13 +158,15 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
         <TableHeader>
           <TableRow>
             <TableHead className="w-[30px]"></TableHead>
-            <TableHead>Asset</TableHead>
-            <TableHead>Net Quantity</TableHead>
-            <TableHead>Total Buy Value</TableHead>
-            <TableHead>Current Price (Per Unit)</TableHead>
-            <TableHead>Current Value</TableHead>
-            <TableHead>Total Gain/Loss</TableHead>
-            <TableHead>Last Transaction</TableHead>
+            <TableHead>Asset Name</TableHead>
+            <TableHead>Holdings</TableHead>
+            <TableHead>Total Purchase Value</TableHead>
+            <TableHead>Current Market Price</TableHead>
+            <TableHead>Total Market Value</TableHead>
+            <TableHead>Total Return
+              <div className="text-xs font-normal text-gray-500">Realized + Unrealized</div>
+            </TableHead>
+            <TableHead>Last Transaction Date</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -202,10 +204,10 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                       {gainLoss.value} ({gainLoss.percentage}%)
                       <div className="text-xs mt-1 space-y-1">
                         <div className="text-gray-500">
-                          Realized: {formatValue(gainLoss.realizedGains, displayCurrency)}
+                          Realized Return: {formatValue(gainLoss.realizedGains, displayCurrency)}
                         </div>
                         <div className="text-gray-500">
-                          Unrealized: {formatValue(gainLoss.unrealizedGain, displayCurrency)}
+                          Unrealized Return: {formatValue(gainLoss.unrealizedGain, displayCurrency)}
                         </div>
                       </div>
                     </span>

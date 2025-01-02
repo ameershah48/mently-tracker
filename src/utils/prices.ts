@@ -16,15 +16,12 @@ export async function fetchHistoricalGoldPrices(startDate: Date): Promise<void> 
       throw new Error('Gold API key not found in environment variables');
     }
 
-    // Get first day of the start month
-    const firstDayOfMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    // Get first day of the current month
-    const currentDate = new Date();
-    const firstDayOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const currentMonthFirstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
-    const dates = [firstDayOfMonth, firstDayOfCurrentMonth];
+    // Use exact start date and current date
+    const dates = [startDate, currentMonthFirstDay];
 
-    // Fetch prices for first day of start month and current month
+    // Fetch prices for start date and current date
     for (const date of dates) {
       const formattedDate = date.toISOString().split('T')[0];
       
@@ -107,10 +104,13 @@ export async function fetchPrices(symbols: CryptoSymbol[]): Promise<PriceMap> {
               'x-access-token': API_KEY
             }
           });
+          console.log('Gold API Response Status:', response.status);
           const data = await response.json();
+          console.log('Gold API Response Data:', data);
           if (data && data.price) {
             // Price is in USD per troy ounce, convert to grams
             const goldPrice = data.price / 31.1034768;
+            console.log('Calculated Gold Price (per gram):', goldPrice);
             prices.GOLD = goldPrice;
             // Update cache
             lastGoldPrice = goldPrice;

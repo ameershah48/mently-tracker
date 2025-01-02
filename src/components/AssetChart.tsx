@@ -166,12 +166,12 @@ export function AssetChart({ assets }: AssetChartProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
-        <CardTitle>Asset Growth</CardTitle>
+        <CardTitle>Portfolio Performance</CardTitle>
         <div className="flex gap-4">
           <Tabs defaultValue={viewMode} onValueChange={(value: string) => setViewMode(value as ViewMode)}>
             <TabsList>
-              <TabsTrigger value="MERGED">Merged</TabsTrigger>
-              <TabsTrigger value="SEPARATE">Separate</TabsTrigger>
+              <TabsTrigger value="MERGED">Combined</TabsTrigger>
+              <TabsTrigger value="SEPARATE">Individual</TabsTrigger>
             </TabsList>
           </Tabs>
           <Tabs defaultValue={timeInterval} onValueChange={(value: string) => setTimeInterval(value as TimeInterval)}>
@@ -218,7 +218,7 @@ export function AssetChart({ assets }: AssetChartProps) {
                     key={asset.symbol}
                     type="monotone"
                     dataKey={asset.symbol}
-                    name={`${asset.name} (${asset.symbol})`}
+                    name={`${asset.name} Value`}
                     stroke={COLORS[index % COLORS.length]}
                     strokeWidth={2}
                     dot={false}
