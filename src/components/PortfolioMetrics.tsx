@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Asset } from '../types/asset';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { ArrowUpCircle, ArrowDownCircle, TrendingUp } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, TrendingUp, Coins } from 'lucide-react';
 import { Currency } from '../types/asset';
 
 interface PortfolioMetricsProps {
@@ -67,10 +67,19 @@ export function PortfolioMetrics({ assets }: PortfolioMetricsProps) {
       return total + convertAmount(valueInUSD, asset.currentPriceCurrency, displayCurrency);
     }, 0);
 
+    // Calculate total earnings from EARN transactions
+    const totalEarnings = assets
+      .filter(asset => asset.transactionType === 'EARN')
+      .reduce((total, asset) => {
+        const earnValue = asset.purchaseQuantity;
+        return total + convertAmount(earnValue, asset.purchaseCurrency, displayCurrency);
+      }, 0);
+
     return {
       totalBuyValue,
       totalCurrentValue,
-      totalProfit: totalCurrentValue - totalBuyValue
+      totalProfit: totalCurrentValue - totalBuyValue,
+      totalEarnings
     };
   }, [assets, convertAmount, displayCurrency]);
 
@@ -84,7 +93,7 @@ export function PortfolioMetrics({ assets }: PortfolioMetricsProps) {
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Buy Value</CardTitle>
@@ -92,6 +101,18 @@ export function PortfolioMetrics({ assets }: PortfolioMetricsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(metrics.totalBuyValue)}</div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+          <Coins className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {formatCurrency(metrics.totalEarnings)}
+          </div>
         </CardContent>
       </Card>
 
@@ -108,12 +129,18 @@ export function PortfolioMetrics({ assets }: PortfolioMetricsProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Profit/Loss</CardTitle>
-          <TrendingUp className={`h-4 w-4 ${metrics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+          <div className="flex gap-2">
+            <Coins className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className={`h-4 w-4 ${metrics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+          </div>
         </CardHeader>
         <CardContent>
           <div className={`text-2xl font-bold ${metrics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatCurrency(metrics.totalProfit)}
           </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Trading: {formatCurrency(metrics.totalProfit - metrics.totalEarnings)} | Earnings: {formatCurrency(metrics.totalEarnings)}
+          </p>
         </CardContent>
       </Card>
     </div>
