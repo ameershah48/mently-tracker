@@ -11,7 +11,7 @@ export function getAllAssets(): Asset[] {
 export function saveAsset(data: AssetFormData): void {
   const assets = getAllAssets();
   
-  // For sell transactions, verify we have enough assets to sell and ensure profit
+  // For sell transactions, verify we have enough assets to sell
   if (data.transactionType === 'SELL') {
     // Get total quantity of this asset from previous buys
     const totalBought = assets
@@ -27,14 +27,6 @@ export function saveAsset(data: AssetFormData): void {
     
     if (data.purchaseQuantity > availableQuantity) {
       throw new Error(`Cannot sell ${data.purchaseQuantity} ${data.symbol}. Only ${availableQuantity} available.`);
-    }
-
-    // Calculate average purchase price and validate selling price
-    const avgPurchasePrice = getAveragePurchasePrice(data.symbol);
-    const sellingPricePerUnit = data.purchasePrice / data.purchaseQuantity;
-    
-    if (sellingPricePerUnit <= avgPurchasePrice) {
-      throw new Error(`Selling price (${sellingPricePerUnit.toFixed(2)} ${data.purchaseCurrency}) must be higher than average purchase price (${avgPurchasePrice.toFixed(2)} ${data.purchaseCurrency}) to ensure profit.`);
     }
   }
 

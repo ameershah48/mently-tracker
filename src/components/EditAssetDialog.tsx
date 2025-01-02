@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { EditAssetData, Currency, Asset } from '../types/asset';
+import { EditAssetData, Currency, Asset, TransactionType } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
 import { Button } from './ui/button';
@@ -30,6 +30,7 @@ export function EditAssetDialog({ asset, onSave, onCancel }: EditAssetDialogProp
     purchasePrice: asset.purchasePrice,
     purchaseCurrency: asset.purchaseCurrency,
     purchaseDate: new Date(asset.purchaseDate),
+    transactionType: asset.transactionType,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,6 +118,26 @@ export function EditAssetDialog({ asset, onSave, onCancel }: EditAssetDialogProp
                 purchaseDate: new Date(e.target.value)
               }))}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="transactionType">Transaction Type</Label>
+            <Select
+              value={formData.transactionType}
+              onValueChange={(value: TransactionType) => setFormData(prev => ({
+                ...prev,
+                transactionType: value
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Transaction Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="BUY">Buy</SelectItem>
+                <SelectItem value="SELL">Sell</SelectItem>
+                <SelectItem value="EARN">Earn</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex justify-end gap-2">

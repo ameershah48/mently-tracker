@@ -122,6 +122,28 @@ function TotalProfitDisplay({ assets }: { assets: Asset[] }) {
   );
 }
 
+function TotalValueDisplay({ assets }: { assets: Asset[] }) {
+  const { displayCurrency, convertAmount } = useCurrency();
+  
+  return (
+    <div className="flex items-center bg-muted px-4 py-2 rounded-lg">
+      <Wallet className="h-5 w-5 text-muted-foreground mr-2" />
+      <span className="text-sm font-medium text-muted-foreground">Total Value:</span>
+      <span className="ml-2 font-bold">
+        {new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: displayCurrency,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(assets.reduce((total, asset) => {
+          const valueInUSD = asset.currentPrice * Math.max(0, asset.purchaseQuantity * (asset.transactionType === 'SELL' ? -1 : 1));
+          return total + convertAmount(valueInUSD, 'USD', displayCurrency);
+        }, 0))}
+      </span>
+    </div>
+  );
+}
+
 function App() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -138,19 +160,22 @@ function App() {
       if (currentAssets.length === 0) return;
 
       try {
+        // Get unique symbols and filter out assets with recent updates
         const symbols = [...new Set(currentAssets.map(asset => asset.symbol))];
         const prices = await fetchPrices(symbols);
         
-        // Update prices in database and state
-        for (const asset of currentAssets) {
+        // Batch update prices in database
+        const updates = currentAssets.map(asset => {
           const newPrice = prices[asset.symbol];
-          if (newPrice !== undefined) {
-            await updateAssetPrice(asset.id, newPrice);
-            // Store the price in history
-            addPriceEntry(asset.symbol, newPrice);
+          if (newPrice !== undefined && newPrice !== asset.currentPrice) {
+            return updateAssetPrice(asset.id, newPrice);
           }
-        }
+          return Promise.resolve();
+        });
+        
+        await Promise.all(updates);
 
+        // Batch update state
         setAssets(prev => prev.map(asset => ({
           ...asset,
           currentPrice: prices[asset.symbol] ?? asset.currentPrice
@@ -165,12 +190,12 @@ function App() {
     // Initial update
     updatePrices();
 
-    // Set up interval
-    const interval = setInterval(updatePrices, 30000);
+    // Set up interval with the same duration as crypto cache
+    const interval = setInterval(updatePrices, 30000); // 30 seconds
 
     // Cleanup
     return () => clearInterval(interval);
-  }, []); // Remove assets dependency
+  }, [assets.length]); // Only re-create effect when number of assets changes
 
   const loadAssets = async () => {
     try {
@@ -258,7 +283,10 @@ function App() {
               {assets.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Portfolio Distribution</CardTitle>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>Portfolio Distribution</CardTitle>
+                      <TotalValueDisplay assets={assets} />
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <AssetPieChart assets={assets} />

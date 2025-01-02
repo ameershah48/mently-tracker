@@ -1,4 +1,4 @@
-export type CryptoSymbol = 'BTC' | 'ETH' | 'BNB' | 'XRP' | 'SOL' | 'ADA' | 'DOGE' | 'DOT' | 'MATIC' | 'LINK' | 'GOLD';
+export type CryptoSymbol = 'BTC' | 'ETH' | 'BNB' | 'XRP' | 'SOL' | 'ADA' | 'DOGE' | 'DOT' | 'MATIC' | 'LINK' | 'GOLD' | 'WLD' | 'CELO' | 'SUI' | 'XLM' | 'LTC';
 
 export const CRYPTO_OPTIONS: { value: CryptoSymbol; label: string; name: string }[] = [
   { value: 'GOLD', label: 'GOLD', name: 'Gold' },
@@ -11,5 +11,10 @@ export const CRYPTO_OPTIONS: { value: CryptoSymbol; label: string; name: string 
   { value: 'DOGE', label: 'DOGE', name: 'Dogecoin' },
   { value: 'DOT', label: 'DOT', name: 'Polkadot' },
   { value: 'MATIC', label: 'MATIC', name: 'Polygon' },
-  { value: 'LINK', label: 'LINK', name: 'Chainlink' }
+  { value: 'LINK', label: 'LINK', name: 'Chainlink' },
+  { value: 'WLD', label: 'WLD', name: 'Worldcoin' },
+  { value: 'CELO', label: 'CELO', name: 'Celo' },
+  { value: 'SUI', label: 'SUI', name: 'Sui' },
+  { value: 'XLM', label: 'XLM', name: 'Stellar Lumens' },
+  { value: 'LTC', label: 'LTC', name: 'Litecoin' }
 ]; 

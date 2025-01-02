@@ -5,7 +5,7 @@ import { AssetFormData, Currency, TransactionType } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
 import { Button } from './ui/button';
-import { fetchHistoricalGoldPrices } from '../utils/prices';
+import { fetchHistoricalGoldPrices, fetchHistoricalCryptoPrices } from '../utils/prices';
 import {
   Select,
   SelectContent,
@@ -38,10 +38,14 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
     try {
       await saveAsset(formData);
       
-      // If this is a gold asset, fetch historical prices in the background
+      // Fetch historical prices in the background
       if (formData.symbol === 'GOLD') {
         fetchHistoricalGoldPrices(formData.purchaseDate).catch(error => {
           console.error('Failed to fetch historical gold prices:', error);
+        });
+      } else if (CRYPTO_OPTIONS.some(option => option.value === formData.symbol)) {
+        fetchHistoricalCryptoPrices(formData.symbol, formData.purchaseDate).catch(error => {
+          console.error(`Failed to fetch historical ${formData.symbol} prices:`, error);
         });
       }
       
@@ -70,6 +74,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         ...prev,
         symbol: selectedAsset.value,
         name: selectedAsset.name,
+        purchasePrice: prev.transactionType === 'EARN' ? 0 : prev.purchasePrice,
       }));
     }
   };
@@ -82,7 +87,8 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
           value={formData.transactionType}
           onValueChange={(value: TransactionType) => setFormData(prev => ({
             ...prev,
-            transactionType: value
+            transactionType: value,
+            purchasePrice: value === 'EARN' ? 0 : prev.purchasePrice
           }))}
         >
           <SelectTrigger>
@@ -91,6 +97,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
           <SelectContent>
             <SelectItem value="BUY">Buy</SelectItem>
             <SelectItem value="SELL">Sell</SelectItem>
+            <SelectItem value="EARN">Earn</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -144,6 +151,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
               purchasePrice: parseFloat(e.target.value) || 0
             }))}
             className="flex-1"
+            disabled={formData.transactionType === 'EARN'}
           />
           <Select
             value={formData.purchaseCurrency}
@@ -182,10 +190,14 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {formData.transactionType === 'BUY' ? 'Adding Asset...' : 'Selling Asset...'}
+            {formData.transactionType === 'BUY' ? 'Adding Asset...' : 
+             formData.transactionType === 'SELL' ? 'Selling Asset...' : 
+             'Recording Earnings...'}
           </>
         ) : (
-          formData.transactionType === 'BUY' ? 'Add Asset' : 'Sell Asset'
+          formData.transactionType === 'BUY' ? 'Add Asset' : 
+          formData.transactionType === 'SELL' ? 'Sell Asset' : 
+          'Record Earnings'
         )}
       </Button>
     </form>

@@ -2,7 +2,7 @@ import { CryptoSymbol } from './crypto';
 
 export type Currency = 'USD' | 'MYR';
 
-export type TransactionType = 'BUY' | 'SELL';
+export type TransactionType = 'BUY' | 'SELL' | 'EARN';
 
 export interface Asset {
   id: string;
@@ -33,4 +33,5 @@ export interface EditAssetData {
   purchasePrice: number;
   purchaseCurrency: Currency;
   purchaseDate: Date;
+  transactionType: TransactionType;
 }

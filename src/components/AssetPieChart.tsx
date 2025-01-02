@@ -22,6 +22,9 @@ interface MergedAsset {
   totalQuantity: number;
   totalValue: number;
   percentage: number;
+  buyQuantity: number;
+  sellQuantity: number;
+  earnQuantity: number;
 }
 
 export const AssetPieChart: React.FC<AssetPieChartProps> = ({ assets }) => {
@@ -29,7 +32,7 @@ export const AssetPieChart: React.FC<AssetPieChartProps> = ({ assets }) => {
 
   // Merge assets with the same symbol
   const mergedAssets = assets.reduce<Record<string, MergedAsset>>((acc, asset) => {
-    const valueInUSD = asset.currentPrice * asset.purchaseQuantity;
+    const valueInUSD = asset.currentPrice * Math.max(0, asset.purchaseQuantity * (asset.transactionType === 'SELL' ? -1 : 1));
     const currentValue = convertAmount(valueInUSD, 'USD', displayCurrency);
     
     if (!acc[asset.symbol]) {
@@ -37,13 +40,19 @@ export const AssetPieChart: React.FC<AssetPieChartProps> = ({ assets }) => {
         symbol: asset.symbol,
         name: asset.symbol,
         fullName: asset.name,
-        totalQuantity: asset.purchaseQuantity,
+        totalQuantity: asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity,
         totalValue: currentValue,
-        percentage: 0 // Will be calculated after
+        percentage: 0,
+        buyQuantity: asset.transactionType === 'BUY' ? asset.purchaseQuantity : 0,
+        sellQuantity: asset.transactionType === 'SELL' ? asset.purchaseQuantity : 0,
+        earnQuantity: asset.transactionType === 'EARN' ? asset.purchaseQuantity : 0
       };
     } else {
-      acc[asset.symbol].totalQuantity += asset.purchaseQuantity;
+      acc[asset.symbol].totalQuantity += asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity;
       acc[asset.symbol].totalValue += currentValue;
+      if (asset.transactionType === 'BUY') acc[asset.symbol].buyQuantity += asset.purchaseQuantity;
+      if (asset.transactionType === 'SELL') acc[asset.symbol].sellQuantity += asset.purchaseQuantity;
+      if (asset.transactionType === 'EARN') acc[asset.symbol].earnQuantity += asset.purchaseQuantity;
     }
     
     return acc;
@@ -101,9 +110,27 @@ export const AssetPieChart: React.FC<AssetPieChartProps> = ({ assets }) => {
           <p className="font-medium text-gray-900 mb-2">{data.fullName}</p>
           <div className="space-y-1">
             <div className="flex justify-between gap-4">
-              <span className="text-sm text-gray-500">Quantity:</span>
+              <span className="text-sm text-gray-500">Net Quantity:</span>
               <span className="text-sm font-medium text-gray-900">
                 {formatQuantity(data.totalQuantity, data.symbol)}
+              </span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-sm text-gray-500">Bought:</span>
+              <span className="text-sm font-medium text-green-600">
+                {formatQuantity(data.buyQuantity, data.symbol)}
+              </span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-sm text-gray-500">Sold:</span>
+              <span className="text-sm font-medium text-red-600">
+                {formatQuantity(data.sellQuantity, data.symbol)}
+              </span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-sm text-gray-500">Earned:</span>
+              <span className="text-sm font-medium text-blue-600">
+                {formatQuantity(data.earnQuantity, data.symbol)}
               </span>
             </div>
             <div className="flex justify-between gap-4">

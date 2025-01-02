@@ -55,10 +55,10 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
       };
 
       // Update quantity based on transaction type
-      const quantityChange = asset.transactionType === 'BUY' ? asset.purchaseQuantity : -asset.purchaseQuantity;
+      const quantityChange = asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity;
       existing.netQuantity += quantityChange;
 
-      // Only add to total buy value for buy transactions
+      // Only add to total buy value for buy transactions (not EARN)
       if (asset.transactionType === 'BUY') {
         const convertedBuyValue = convertAmount(
           asset.purchasePrice,
