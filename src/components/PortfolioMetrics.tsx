@@ -62,9 +62,9 @@ export function PortfolioMetrics({ assets }: PortfolioMetricsProps) {
     }, 0);
 
     // Calculate total current value
-    const totalCurrentValue = assets.reduce((total, asset) => {
-      const valueInUSD = asset.currentPrice * Math.max(0, asset.purchaseQuantity * (asset.transactionType === 'SELL' ? -1 : 1));
-      return total + convertAmount(valueInUSD, asset.currentPriceCurrency, displayCurrency);
+    const totalCurrentValue = Array.from(positions.values()).reduce((total, position) => {
+      const valueInUSD = position.currentPrice * Math.max(0, position.netQuantity);
+      return total + convertAmount(valueInUSD, position.currentPriceCurrency, displayCurrency);
     }, 0);
 
     // Calculate total earnings from EARN transactions

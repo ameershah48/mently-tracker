@@ -24,7 +24,7 @@ type SortDirection = 'asc' | 'desc';
 
 export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [expandedAssets, setExpandedAssets] = useState<Set<string>>(new Set());
   const { displayCurrency, convertAmount } = useCurrency();
 
@@ -176,13 +176,14 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
     };
   };
 
-  const handleDateSort = () => {
+  const handleSort = () => {
     setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
   };
 
   const sortedPositions = [...netPositions].sort((a, b) => {
     const direction = sortDirection === 'asc' ? 1 : -1;
-    return direction * (new Date(a.lastPurchaseDate).getTime() - new Date(b.lastPurchaseDate).getTime());
+    return direction * (convertAmount(a.totalBuyValue, a.totalBuyCurrency, displayCurrency) - 
+                       convertAmount(b.totalBuyValue, b.totalBuyCurrency, displayCurrency));
   });
 
   const toggleAssetExpanded = (symbol: string) => {
@@ -203,7 +204,16 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
             <TableHead className="w-[30px]"></TableHead>
             <TableHead>Asset Name</TableHead>
             <TableHead>Holdings</TableHead>
-            <TableHead>Total Purchase Value</TableHead>
+            <TableHead>
+              <Button
+                variant="ghost"
+                onClick={handleSort}
+                className="flex items-center gap-1"
+              >
+                Total Purchase Value
+                <ArrowUpDown className="h-4 w-4" />
+              </Button>
+            </TableHead>
             <TableHead>Current Market Price</TableHead>
             <TableHead>Total Market Value</TableHead>
             <TableHead>Total Return
@@ -212,7 +222,7 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
             <TableHead>
               <Button
                 variant="ghost"
-                onClick={handleDateSort}
+                onClick={handleSort}
                 className="flex items-center gap-1"
               >
                 Last Transaction Date
