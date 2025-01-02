@@ -2,7 +2,18 @@ import { CryptoSymbol } from '../types/crypto';
 
 type PriceMap = Record<CryptoSymbol, number>;
 
+let lastGoldPrice: number | null = null;
+let lastGoldFetchTime: number | null = null;
+const GOLD_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+let lastFetchTime: number | null = null;
+
 export async function fetchPrices(symbols: CryptoSymbol[]): Promise<PriceMap> {
+  const now = Date.now();
+  const timeSinceLastFetch = lastFetchTime ? now - lastFetchTime : null;
+  console.log(`Fetching prices... Time since last fetch: ${timeSinceLastFetch ? Math.round(timeSinceLastFetch/1000) + 's' : 'First fetch'}`);
+  lastFetchTime = now;
+
   const prices: PriceMap = {} as PriceMap;
 
   try {
@@ -25,21 +36,42 @@ export async function fetchPrices(symbols: CryptoSymbol[]): Promise<PriceMap> {
       });
     }
 
-    // Fetch gold price
+    // Fetch gold price with caching
     if (goldSymbol) {
-      try {
-        const response = await fetch('https://api.metals.live/v1/spot/gold');
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          // Convert from troy ounce to grams (1 troy ounce = 31.1034768 grams)
-          prices.GOLD = data[0].price / 31.1034768;
-        } else {
-          // Fallback price if API fails
-          prices.GOLD = 60; // Approximate price per gram in USD
+      const now = Date.now();
+      
+      // Use cached price if available and not expired
+      if (lastGoldPrice !== null && lastGoldFetchTime !== null && 
+          now - lastGoldFetchTime < GOLD_CACHE_DURATION) {
+        prices.GOLD = lastGoldPrice;
+      } else {
+        try {
+          const API_KEY = process.env.GOLD_API_KEY;
+          if (!API_KEY) {
+            throw new Error('Gold API key not found in environment variables');
+          }
+          
+          const response = await fetch('https://www.goldapi.io/api/XAU/USD', {
+            headers: {
+              'x-access-token': API_KEY
+            }
+          });
+          const data = await response.json();
+          if (data && data.price) {
+            // Price is in USD per troy ounce, convert to grams
+            const goldPrice = data.price / 31.1034768;
+            prices.GOLD = goldPrice;
+            // Update cache
+            lastGoldPrice = goldPrice;
+            lastGoldFetchTime = now;
+          } else {
+            // Use cached price if available, otherwise fallback
+            prices.GOLD = lastGoldPrice ?? 60;
+          }
+        } catch (error) {
+          console.warn('Failed to fetch gold price, using cached or fallback price');
+          prices.GOLD = lastGoldPrice ?? 60; // Use cached price if available, otherwise fallback
         }
-      } catch (error) {
-        console.error('Failed to fetch gold price:', error);
-        prices.GOLD = 60; // Fallback price
       }
     }
 

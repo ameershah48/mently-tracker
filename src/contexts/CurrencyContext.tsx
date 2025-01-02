@@ -21,8 +21,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     // Fetch exchange rates from an API
     const fetchExchangeRates = async () => {
       try {
+        const API_KEY = process.env.OPENEXCHANGE_API_KEY;
         const response = await fetch(
-          `https://openexchangerates.org/api/latest.json?app_id=YOUR_APP_ID&base=USD&symbols=MYR`
+          `https://openexchangerates.org/api/latest.json?app_id=${API_KEY}&base=USD&symbols=MYR`
         );
         const data = await response.json();
         if (data.rates) {

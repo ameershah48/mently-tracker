@@ -68,14 +68,15 @@ function App() {
   // Auto-update prices every 30 seconds
   useEffect(() => {
     const updatePrices = async () => {
-      if (assets.length === 0) return;
+      const currentAssets = assets;  // Capture current assets value
+      if (currentAssets.length === 0) return;
 
       try {
-        const symbols = [...new Set(assets.map(asset => asset.symbol))];
+        const symbols = [...new Set(currentAssets.map(asset => asset.symbol))];
         const prices = await fetchPrices(symbols);
         
         // Update prices in database and state
-        for (const asset of assets) {
+        for (const asset of currentAssets) {
           const newPrice = prices[asset.symbol];
           if (newPrice !== undefined) {
             await updateAssetPrice(asset.id, newPrice);
@@ -103,7 +104,7 @@ function App() {
 
     // Cleanup
     return () => clearInterval(interval);
-  }, [assets]);
+  }, []); // Remove assets dependency
 
   const loadAssets = async () => {
     try {
