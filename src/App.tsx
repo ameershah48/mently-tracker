@@ -34,7 +34,7 @@ function TotalProfitDisplay({ assets }: { assets: Asset[] }) {
       );
       // Convert purchase value to display currency
       const purchaseValue = convertAmount(
-        asset.purchasePrice * asset.purchaseQuantity,
+        asset.purchasePrice,
         asset.purchaseCurrency,
         displayCurrency
       );

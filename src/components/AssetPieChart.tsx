@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { Asset } from '../types/asset';
 import { Wallet } from 'lucide-react';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface AssetPieChartProps {
   assets: Asset[];
@@ -24,9 +25,12 @@ interface MergedAsset {
 }
 
 export const AssetPieChart: React.FC<AssetPieChartProps> = ({ assets }) => {
+  const { displayCurrency, convertAmount } = useCurrency();
+
   // Merge assets with the same symbol
   const mergedAssets = assets.reduce<Record<string, MergedAsset>>((acc, asset) => {
-    const currentValue = asset.currentPrice * asset.purchaseQuantity;
+    const valueInUSD = asset.currentPrice * asset.purchaseQuantity;
+    const currentValue = convertAmount(valueInUSD, 'USD', displayCurrency);
     
     if (!acc[asset.symbol]) {
       acc[asset.symbol] = {
@@ -76,7 +80,7 @@ export const AssetPieChart: React.FC<AssetPieChartProps> = ({ assets }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: displayCurrency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);

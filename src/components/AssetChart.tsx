@@ -13,6 +13,7 @@ import { Asset } from '../types/asset';
 import { getAssetPriceHistory, PriceHistoryEntry } from '../utils/priceHistory';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface AssetChartProps {
   assets: Asset[];
@@ -30,6 +31,7 @@ interface ChartDataPoint {
 export function AssetChart({ assets }: AssetChartProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('SEPARATE');
   const [timeInterval, setTimeInterval] = useState<TimeInterval>('MONTHLY');
+  const { displayCurrency, convertAmount } = useCurrency();
 
   const COLORS = [
     '#2563eb', // blue
@@ -47,7 +49,7 @@ export function AssetChart({ assets }: AssetChartProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: displayCurrency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -118,7 +120,9 @@ export function AssetChart({ assets }: AssetChartProps) {
 
           // Only include in total if the asset was purchased by this date
           if (new Date(asset.purchaseDate) <= date) {
-            dataPoint.totalValue += price * asset.purchaseQuantity;
+            // Convert the value to display currency
+            const valueInUSD = price * asset.purchaseQuantity;
+            dataPoint.totalValue += convertAmount(valueInUSD, 'USD', displayCurrency);
           }
         });
 
@@ -146,7 +150,9 @@ export function AssetChart({ assets }: AssetChartProps) {
 
           // Only include value if the asset was purchased by this date
           if (new Date(asset.purchaseDate) <= date) {
-            dataPoint[asset.symbol] = price * asset.purchaseQuantity;
+            // Convert the value to display currency
+            const valueInUSD = price * asset.purchaseQuantity;
+            dataPoint[asset.symbol] = convertAmount(valueInUSD, 'USD', displayCurrency);
           }
         });
 
