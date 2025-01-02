@@ -5,10 +5,56 @@ import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
 import { AssetChart } from './components/AssetChart';
 import { AssetPieChart } from './components/AssetPieChart';
+import { CurrencyProvider, useCurrency } from './contexts/CurrencyContext';
+import { CurrencySelector } from './components/CurrencySelector';
 import { getAllAssets, deleteAsset, updateAssetPrice, updateAsset } from './utils/db';
 import { fetchPrices } from './utils/prices';
 import { addPriceEntry } from './utils/priceHistory';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+
+function TotalProfitDisplay({ assets }: { assets: Asset[] }) {
+  const { displayCurrency, convertAmount } = useCurrency();
+
+  const formatValue = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: displayCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const calculateTotalProfit = () => {
+    return assets.reduce((total, asset) => {
+      // Convert current value to display currency
+      const currentValue = convertAmount(
+        asset.currentPrice * asset.purchaseQuantity,
+        asset.currentPriceCurrency,
+        displayCurrency
+      );
+      // Convert purchase value to display currency
+      const purchaseValue = convertAmount(
+        asset.purchasePrice * asset.purchaseQuantity,
+        asset.purchaseCurrency,
+        displayCurrency
+      );
+      const profit = currentValue - purchaseValue;
+      return total + profit;
+    }, 0);
+  };
+
+  const totalProfit = calculateTotalProfit();
+
+  return (
+    <div className="flex items-center bg-muted px-4 py-2 rounded-lg">
+      <Wallet className="h-5 w-5 text-muted-foreground mr-2" />
+      <span className="text-sm font-medium text-muted-foreground">Total Profit:</span>
+      <span className={`ml-2 font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+        {formatValue(totalProfit)}
+      </span>
+    </div>
+  );
+}
 
 function App() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -97,19 +143,6 @@ function App() {
     }
   };
 
-  const calculateTotalProfit = () => {
-    return assets.reduce((total, asset) => {
-      // Current total value
-      const currentValue = asset.currentPrice * asset.purchaseQuantity;
-      // Purchase price is already the total amount paid
-      const purchaseValue = asset.purchasePrice;
-      const profit = currentValue - purchaseValue;
-      return total + profit;
-    }, 0);
-  };
-
-  const totalProfit = calculateTotalProfit();
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -119,82 +152,81 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card className="mb-8">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="flex items-center">
-              <LineChart className="h-8 w-8 text-primary mr-2" />
-              <CardTitle>Asset Tracker</CardTitle>
-            </div>
-            <div className="flex flex-col items-end">
-              <div className="flex items-center bg-muted px-4 py-2 rounded-lg">
-                <Wallet className="h-5 w-5 text-muted-foreground mr-2" />
-                <span className="text-sm font-medium text-muted-foreground">Total Profit:</span>
-                <span className={`ml-2 font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${totalProfit.toFixed(2)}
-                </span>
+    <CurrencyProvider>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Card className="mb-8">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div className="flex items-center">
+                <LineChart className="h-8 w-8 text-primary mr-2" />
+                <div className="flex items-center gap-4">
+                  <CardTitle>Asset Tracker</CardTitle>
+                  <CurrencySelector />
+                </div>
               </div>
-              {lastUpdated && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Last updated: {lastUpdated.toLocaleTimeString()}
-                </p>
-              )}
-            </div>
-          </CardHeader>
-        </Card>
+              <div className="flex flex-col items-end">
+                <TotalProfitDisplay assets={assets} />
+                {lastUpdated && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Last updated: {lastUpdated.toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+            </CardHeader>
+          </Card>
 
-        <div className="space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Add Asset</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AssetForm
-                  onSubmit={handleAddAsset}
-                  onError={(error) => console.error('Form error:', error)}
-                />
-              </CardContent>
-            </Card>
-            {assets.length > 0 && (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Card>
                 <CardHeader>
-                  <CardTitle>Portfolio Distribution</CardTitle>
+                  <CardTitle>Add Asset</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <AssetPieChart assets={assets} />
+                  <AssetForm
+                    onSubmit={handleAddAsset}
+                    onError={(error) => console.error('Form error:', error)}
+                  />
+                </CardContent>
+              </Card>
+              {assets.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Portfolio Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AssetPieChart assets={assets} />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {assets.length > 0 ? (
+              <>
+                <AssetChart assets={assets} />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Asset List</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AssetList
+                      assets={assets}
+                      onDelete={handleDeleteAsset}
+                      onEdit={handleEditAsset}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <p className="text-muted-foreground">No assets added yet. Add your first asset above!</p>
                 </CardContent>
               </Card>
             )}
           </div>
-
-          {assets.length > 0 ? (
-            <>
-              <AssetChart assets={assets} />
-              <Card>
-                <CardHeader>
-                  <CardTitle>Asset List</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AssetList
-                    assets={assets}
-                    onDelete={handleDeleteAsset}
-                    onEdit={handleEditAsset}
-                  />
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            <Card>
-              <CardContent className="text-center py-12">
-                <p className="text-muted-foreground">No assets added yet. Add your first asset above!</p>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
-    </div>
+    </CurrencyProvider>
   );
 }
 

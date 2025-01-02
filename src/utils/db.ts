@@ -1,48 +1,53 @@
-import Dexie, { Table } from 'dexie';
 import { Asset, AssetFormData, EditAssetData } from '../types/asset';
 
-class AssetDatabase extends Dexie {
-  assets!: Table<Asset>;
+const STORAGE_KEY = 'assets';
 
-  constructor() {
-    super('AssetDatabase');
-    this.version(1).stores({
-      assets: 'id, symbol, name, purchaseQuantity, purchasePrice, purchaseDate, currentPrice, createdAt'
-    });
+export function getAllAssets(): Asset[] {
+  const storedData = localStorage.getItem(STORAGE_KEY);
+  if (!storedData) return [];
+  return JSON.parse(storedData);
+}
+
+export function saveAsset(data: AssetFormData): void {
+  const assets = getAllAssets();
+  const newAsset: Asset = {
+    id: crypto.randomUUID(),
+    ...data,
+    currentPrice: 0,
+    currentPriceCurrency: 'USD',
+    createdAt: new Date(),
+  };
+  assets.push(newAsset);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(assets));
+}
+
+export function updateAsset(id: string, data: EditAssetData): void {
+  const assets = getAllAssets();
+  const index = assets.findIndex(asset => asset.id === id);
+  if (index !== -1) {
+    assets[index] = {
+      ...assets[index],
+      ...data,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(assets));
   }
 }
 
-const db = new AssetDatabase();
+export function updateAssetPrice(id: string, currentPrice: number): void {
+  const assets = getAllAssets();
+  const index = assets.findIndex(asset => asset.id === id);
+  if (index !== -1) {
+    assets[index] = {
+      ...assets[index],
+      currentPrice,
+      currentPriceCurrency: 'USD', // Prices from API are always in USD
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(assets));
+  }
+}
 
-export const saveAsset = async (data: AssetFormData): Promise<Asset> => {
-  const asset: Asset = {
-    id: crypto.randomUUID(),
-    ...data,
-    currentPrice: 0, // Will be updated by API
-    createdAt: new Date(),
-  };
-
-  await db.assets.add(asset);
-  return asset;
-};
-
-export const getAllAssets = async (): Promise<Asset[]> => {
-  return await db.assets.orderBy('createdAt').reverse().toArray();
-};
-
-export const updateAssetPrice = async (id: string, currentPrice: number): Promise<void> => {
-  await db.assets.update(id, { currentPrice });
-};
-
-export const updateAsset = async (id: string, data: EditAssetData): Promise<void> => {
-  const updateData: Partial<Asset> = {
-    purchaseQuantity: data.purchaseQuantity,
-    purchasePrice: data.purchasePrice,
-    purchaseDate: data.purchaseDate
-  };
-  await db.assets.update(id, updateData);
-};
-
-export const deleteAsset = async (id: string): Promise<void> => {
-  await db.assets.delete(id);
-}; 
+export function deleteAsset(id: string): void {
+  const assets = getAllAssets();
+  const filteredAssets = assets.filter(asset => asset.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredAssets));
+} 

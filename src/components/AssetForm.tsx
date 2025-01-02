@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { saveAsset } from '../utils/db';
 import { CRYPTO_OPTIONS } from '../types/crypto';
-import { AssetFormData } from '../types/asset';
+import { AssetFormData, Currency } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
 import { Button } from './ui/button';
@@ -20,10 +20,11 @@ interface AssetFormProps {
 
 export function AssetForm({ onSubmit, onError }: AssetFormProps) {
   const [formData, setFormData] = useState<AssetFormData>({
-    symbol: '',
-    name: '',
+    symbol: 'BTC',
+    name: 'Bitcoin',
     purchaseQuantity: 0,
     purchasePrice: 0,
+    purchaseCurrency: 'USD',
     purchaseDate: new Date(),
   });
 
@@ -34,10 +35,11 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
       await onSubmit(formData);
       // Reset form
       setFormData({
-        symbol: '',
-        name: '',
+        symbol: 'BTC',
+        name: 'Bitcoin',
         purchaseQuantity: 0,
         purchasePrice: 0,
+        purchaseCurrency: 'USD',
         purchaseDate: new Date(),
       });
     } catch (error) {
@@ -82,7 +84,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         <Input
           id="quantity"
           type="number"
-          step={formData.symbol === 'GOLD' ? '0.01' : '0.00000001'}
+          step="0.00000001"
           min="0"
           value={formData.purchaseQuantity || ''}
           onChange={e => setFormData(prev => ({
@@ -94,19 +96,36 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="price">Total Purchase Price (USD)</Label>
-        <Input
-          id="price"
-          type="number"
-          step="0.01"
-          min="0"
-          value={formData.purchasePrice || ''}
-          onChange={e => setFormData(prev => ({
-            ...prev,
-            purchasePrice: parseFloat(e.target.value) || 0
-          }))}
-          placeholder="Enter total purchase price in USD"
-        />
+        <Label htmlFor="price">Purchase Price</Label>
+        <div className="flex gap-2">
+          <Input
+            id="price"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.purchasePrice || ''}
+            onChange={e => setFormData(prev => ({
+              ...prev,
+              purchasePrice: parseFloat(e.target.value) || 0
+            }))}
+            className="flex-1"
+          />
+          <Select
+            value={formData.purchaseCurrency}
+            onValueChange={(value: Currency) => setFormData(prev => ({
+              ...prev,
+              purchaseCurrency: value
+            }))}
+          >
+            <SelectTrigger className="w-[100px]">
+              <SelectValue placeholder="Currency" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="USD">USD</SelectItem>
+              <SelectItem value="MYR">MYR</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="space-y-2">
