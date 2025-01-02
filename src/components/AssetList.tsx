@@ -91,19 +91,57 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
     // Get all transactions for this asset
     const assetTransactions = assets.filter(a => a.symbol === position.symbol);
     
-    // Calculate realized gains from SELL transactions
-    const realizedGains = assetTransactions
-      .filter(a => a.transactionType === 'SELL')
-      .reduce((sum, sale) => {
-        const saleValue = convertAmount(
-          sale.purchasePrice,
-          sale.purchaseCurrency,
-          displayCurrency
-        );
-        // Calculate cost basis for the sold amount
-        const costBasis = (position.totalBuyValue / position.netQuantity) * sale.purchaseQuantity;
-        return sum + (saleValue - costBasis);
-      }, 0);
+    // Sort transactions by date for FIFO calculation
+    const sortedTransactions = [...assetTransactions].sort(
+      (a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime()
+    );
+
+    // Keep track of available lots for cost basis calculation
+    let availableLots: { quantity: number; price: number; currency: Currency }[] = [];
+    let realizedGains = 0;
+
+    // Process each transaction in chronological order
+    sortedTransactions.forEach(transaction => {
+      if (transaction.transactionType === 'BUY' || transaction.transactionType === 'EARN') {
+        // Add to available lots
+        availableLots.push({
+          quantity: transaction.purchaseQuantity,
+          price: transaction.purchasePrice / transaction.purchaseQuantity,
+          currency: transaction.purchaseCurrency
+        });
+      } else if (transaction.transactionType === 'SELL') {
+        let remainingToSell = transaction.purchaseQuantity;
+        const salePrice = transaction.purchasePrice / transaction.purchaseQuantity;
+        
+        // Calculate realized gains using FIFO
+        while (remainingToSell > 0 && availableLots.length > 0) {
+          const lot = availableLots[0];
+          const soldFromLot = Math.min(lot.quantity, remainingToSell);
+          
+          // Calculate gain/loss for this portion
+          const costBasis = convertAmount(
+            lot.price * soldFromLot,
+            lot.currency,
+            displayCurrency
+          );
+          const saleValue = convertAmount(
+            salePrice * soldFromLot,
+            transaction.purchaseCurrency,
+            displayCurrency
+          );
+          
+          realizedGains += saleValue - costBasis;
+          
+          // Update or remove the lot
+          lot.quantity -= soldFromLot;
+          remainingToSell -= soldFromLot;
+          
+          if (lot.quantity === 0) {
+            availableLots.shift();
+          }
+        }
+      }
+    });
 
     // Calculate unrealized gains on remaining position
     const currentValue = convertAmount(
@@ -112,17 +150,17 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
       displayCurrency
     );
     
-    const purchaseValue = convertAmount(
-      position.totalBuyValue,
-      position.totalBuyCurrency,
-      displayCurrency
+    const remainingCostBasis = availableLots.reduce((sum, lot) => 
+      sum + convertAmount(lot.price * lot.quantity, lot.currency, displayCurrency),
+      0
     );
 
-    const unrealizedGain = currentValue - purchaseValue;
+    const unrealizedGain = currentValue - remainingCostBasis;
     
     // Total gain is realized + unrealized
     const totalGain = realizedGains + unrealizedGain;
-    const gainLossPercentage = purchaseValue !== 0 ? (totalGain / purchaseValue) * 100 : 0;
+    const totalCost = position.netQuantity > 0 ? remainingCostBasis : position.totalBuyValue;
+    const gainLossPercentage = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0;
 
     return {
       value: formatValue(totalGain, displayCurrency),
