@@ -18,13 +18,13 @@ export async function fetchHistoricalGoldPrices(startDate: Date): Promise<void> 
 
     // Get first day of the start month
     const firstDayOfMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    // Get last day of the current month
+    // Get first day of the current month
     const currentDate = new Date();
-    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const firstDayOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
-    const dates = [firstDayOfMonth, lastDayOfMonth];
+    const dates = [firstDayOfMonth, firstDayOfCurrentMonth];
 
-    // Fetch prices for first day of start month and last day of current month
+    // Fetch prices for first day of start month and current month
     for (const date of dates) {
       const formattedDate = date.toISOString().split('T')[0];
       

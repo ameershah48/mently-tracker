@@ -25,22 +25,50 @@ function TotalProfitDisplay({ assets }: { assets: Asset[] }) {
   };
 
   const calculateTotalProfit = () => {
-    return assets.reduce((total, asset) => {
-      // Convert current value to display currency
-      const currentValue = convertAmount(
-        asset.currentPrice * asset.purchaseQuantity,
-        asset.currentPriceCurrency,
-        displayCurrency
-      );
-      // Convert purchase value to display currency
-      const purchaseValue = convertAmount(
-        asset.purchasePrice,
-        asset.purchaseCurrency,
-        displayCurrency
-      );
-      const profit = currentValue - purchaseValue;
-      return total + profit;
+    // First calculate realized gains from SELL transactions
+    const realizedGains = assets
+      .filter(asset => asset.transactionType === 'SELL')
+      .reduce((total, sale) => {
+        const saleValue = convertAmount(
+          sale.purchasePrice,
+          sale.purchaseCurrency,
+          displayCurrency
+        );
+        
+        // Calculate cost basis for this sale
+        const buyTransactions = assets.filter(a => 
+          a.symbol === sale.symbol && 
+          a.transactionType === 'BUY'
+        );
+        const totalBuyValue = buyTransactions.reduce((sum, buy) => 
+          sum + convertAmount(buy.purchasePrice, buy.purchaseCurrency, displayCurrency), 0
+        );
+        const totalBuyQuantity = buyTransactions.reduce((sum, buy) => sum + buy.purchaseQuantity, 0);
+        const avgCostPerUnit = totalBuyValue / totalBuyQuantity;
+        const costBasis = avgCostPerUnit * sale.purchaseQuantity;
+        
+        return total + (saleValue - costBasis);
+      }, 0);
+
+    // Then calculate unrealized gains on current holdings
+    const unrealizedGains = assets.reduce((total, asset) => {
+      if (asset.transactionType === 'BUY') {
+        const currentValue = convertAmount(
+          asset.currentPrice * asset.purchaseQuantity,
+          asset.currentPriceCurrency,
+          displayCurrency
+        );
+        const purchaseValue = convertAmount(
+          asset.purchasePrice,
+          asset.purchaseCurrency,
+          displayCurrency
+        );
+        return total + (currentValue - purchaseValue);
+      }
+      return total;
     }, 0);
+
+    return realizedGains + unrealizedGains;
   };
 
   const totalProfit = calculateTotalProfit();

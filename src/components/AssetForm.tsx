@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { saveAsset } from '../utils/db';
 import { CRYPTO_OPTIONS } from '../types/crypto';
-import { AssetFormData, Currency } from '../types/asset';
+import { AssetFormData, Currency, TransactionType } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
 import { Button } from './ui/button';
@@ -29,6 +29,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
     purchasePrice: 0,
     purchaseCurrency: 'USD',
     purchaseDate: new Date(),
+    transactionType: 'BUY',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +54,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         purchasePrice: 0,
         purchaseCurrency: 'USD',
         purchaseDate: new Date(),
+        transactionType: 'BUY',
       });
     } catch (error) {
       onError(error as Error);
@@ -74,6 +76,25 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="transactionType">Transaction Type</Label>
+        <Select
+          value={formData.transactionType}
+          onValueChange={(value: TransactionType) => setFormData(prev => ({
+            ...prev,
+            transactionType: value
+          }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select transaction type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="BUY">Buy</SelectItem>
+            <SelectItem value="SELL">Sell</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="asset">Asset</Label>
         <Select
@@ -161,10 +182,10 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Adding Asset...
+            {formData.transactionType === 'BUY' ? 'Adding Asset...' : 'Selling Asset...'}
           </>
         ) : (
-          'Add Asset'
+          formData.transactionType === 'BUY' ? 'Add Asset' : 'Sell Asset'
         )}
       </Button>
     </form>

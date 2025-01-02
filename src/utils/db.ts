@@ -10,6 +10,34 @@ export function getAllAssets(): Asset[] {
 
 export function saveAsset(data: AssetFormData): void {
   const assets = getAllAssets();
+  
+  // For sell transactions, verify we have enough assets to sell and ensure profit
+  if (data.transactionType === 'SELL') {
+    // Get total quantity of this asset from previous buys
+    const totalBought = assets
+      .filter(a => a.symbol === data.symbol && a.transactionType === 'BUY')
+      .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
+      
+    // Get total quantity already sold
+    const totalSold = assets
+      .filter(a => a.symbol === data.symbol && a.transactionType === 'SELL')
+      .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
+      
+    const availableQuantity = totalBought - totalSold;
+    
+    if (data.purchaseQuantity > availableQuantity) {
+      throw new Error(`Cannot sell ${data.purchaseQuantity} ${data.symbol}. Only ${availableQuantity} available.`);
+    }
+
+    // Calculate average purchase price and validate selling price
+    const avgPurchasePrice = getAveragePurchasePrice(data.symbol);
+    const sellingPricePerUnit = data.purchasePrice / data.purchaseQuantity;
+    
+    if (sellingPricePerUnit <= avgPurchasePrice) {
+      throw new Error(`Selling price (${sellingPricePerUnit.toFixed(2)} ${data.purchaseCurrency}) must be higher than average purchase price (${avgPurchasePrice.toFixed(2)} ${data.purchaseCurrency}) to ensure profit.`);
+    }
+  }
+
   const newAsset: Asset = {
     id: crypto.randomUUID(),
     ...data,
@@ -17,6 +45,7 @@ export function saveAsset(data: AssetFormData): void {
     currentPriceCurrency: 'USD',
     createdAt: new Date(),
   };
+  
   assets.push(newAsset);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(assets));
 }
@@ -50,4 +79,32 @@ export function deleteAsset(id: string): void {
   const assets = getAllAssets();
   const filteredAssets = assets.filter(asset => asset.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredAssets));
+}
+
+// Add a new helper function to get available quantity
+export function getAvailableQuantity(symbol: string): number {
+  const assets = getAllAssets();
+  
+  const totalBought = assets
+    .filter(a => a.symbol === symbol && a.transactionType === 'BUY')
+    .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
+    
+  const totalSold = assets
+    .filter(a => a.symbol === symbol && a.transactionType === 'SELL')
+    .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
+    
+  return totalBought - totalSold;
+}
+
+// Add a new helper function to calculate average purchase price
+export function getAveragePurchasePrice(symbol: string): number {
+  const assets = getAllAssets();
+  
+  const buyTransactions = assets.filter(a => a.symbol === symbol && a.transactionType === 'BUY');
+  if (buyTransactions.length === 0) return 0;
+  
+  const totalValue = buyTransactions.reduce((sum, asset) => sum + asset.purchasePrice, 0);
+  const totalQuantity = buyTransactions.reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
+  
+  return totalValue / totalQuantity;
 } 
