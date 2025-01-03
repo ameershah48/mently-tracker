@@ -8,7 +8,7 @@ import { AssetPieChart } from './components/AssetPieChart';
 import { PortfolioMetrics } from './components/PortfolioMetrics';
 import { CurrencyProvider, useCurrency } from './contexts/CurrencyContext';
 import { CurrencySelector } from './components/CurrencySelector';
-import { getAllAssets, deleteAsset, updateAssetPrice, updateAsset } from './utils/db';
+import { getAllAssets, deleteAsset, updateAssetPrice, updateAsset, saveAsset } from './utils/db';
 import { fetchPrices } from './utils/prices';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
@@ -78,7 +78,13 @@ function App() {
   };
 
   const handleAddAsset = async (data: AssetFormData) => {
-    await loadAssets();
+    try {
+      await saveAsset(data);
+      await loadAssets();
+    } catch (error) {
+      console.error('Failed to add asset:', error);
+      throw error;
+    }
   };
 
   const handleEditAsset = async (id: string, data: EditAssetData) => {
@@ -123,33 +129,53 @@ function App() {
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.error('No file selected for import');
+      return;
+    }
 
     try {
+      console.log('Starting import process...');
       const text = await file.text();
       const importData = JSON.parse(text);
-      
+
       if (!importData.assets || !Array.isArray(importData.assets)) {
-        throw new Error('Invalid import file format');
+        const error = 'Invalid import file format: missing assets array';
+        console.error(error);
+        alert(error);
+        return;
       }
+
+      console.log(`Importing ${importData.assets.length} assets...`);
 
       // Import each asset
       for (const asset of importData.assets) {
-        await handleAddAsset({
-          symbol: asset.symbol,
-          name: asset.name,
-          purchasePrice: asset.purchasePrice,
-          purchaseQuantity: asset.purchaseQuantity,
-          purchaseDate: new Date(asset.purchaseDate),
-          purchaseCurrency: asset.purchaseCurrency,
-          transactionType: asset.transactionType
-        });
+        try {
+          const assetData = {
+            symbol: asset.symbol,
+            name: asset.name,
+            purchasePrice: asset.purchasePrice,
+            purchaseQuantity: asset.purchaseQuantity,
+            purchaseDate: new Date(asset.purchaseDate),
+            purchaseCurrency: asset.purchaseCurrency,
+            transactionType: asset.transactionType
+          };
+          
+          console.log('Importing asset:', assetData);
+          await handleAddAsset(assetData);
+        } catch (assetError: any) {
+          console.error('Failed to import asset:', asset, assetError);
+          alert(`Failed to import asset ${asset.symbol}: ${assetError.message}`);
+        }
       }
 
+      console.log('Import completed, reloading assets...');
       await loadAssets();
+      alert('Assets imported successfully!');
     } catch (error) {
-      console.error('Failed to import assets:', error);
-      alert('Failed to import assets. Please check the file format.');
+      const errorMessage = 'Failed to import assets. Please check the file format.';
+      console.error(errorMessage, error);
+      alert(errorMessage);
     }
     
     // Reset the input
