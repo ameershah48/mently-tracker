@@ -4,6 +4,8 @@ export interface CryptoSymbolInfo {
   name: string;
 }
 
+export type CryptoSymbol = string;
+
 export const DEFAULT_CRYPTO_SYMBOLS: CryptoSymbolInfo[] = [
   { value: 'GOLD', label: 'GOLD', name: 'Gold' },
   { value: 'BTC', label: 'BTC', name: 'Bitcoin' },

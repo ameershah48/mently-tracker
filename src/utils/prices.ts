@@ -128,6 +128,9 @@ export async function fetchPrices(symbols: CryptoSymbol[]): Promise<PriceMap> {
       const shouldFetchCrypto = !lastCryptoFetchTime || now - lastCryptoFetchTime >= CRYPTO_CACHE_DURATION;
       
       if (shouldFetchCrypto) {
+
+        console.log('Fetching crypto prices', cryptoSymbols);
+
         const response = await fetch(
           `https://min-api.cryptocompare.com/data/pricemulti?fsyms=${cryptoSymbols.join(',')}&tsyms=USD`
         );

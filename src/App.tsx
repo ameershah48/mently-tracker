@@ -51,12 +51,15 @@ function App() {
     if (assets.length === 0) return;
 
     try {
-      const symbols = [...new Set(assets.map(asset => asset.symbol.value))];
+      const symbols = [...new Set(assets.map(asset => 
+        typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value
+      ))];
       const prices = await fetchPrices(symbols);
 
       let hasUpdates = false;
       const updatedAssets = assets.map(asset => {
-        const newPrice = prices[asset.symbol.value];
+        const symbolValue = typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value;
+        const newPrice = prices[symbolValue];
         if (newPrice !== undefined && newPrice !== asset.currentPrice) {
           hasUpdates = true;
           updateAssetPrice(asset.id, newPrice);
