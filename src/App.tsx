@@ -93,7 +93,7 @@ function App() {
     updatePrices();
 
     // Set up new interval
-    priceUpdateTimeoutRef.current = setInterval(updatePrices, 30000);
+    priceUpdateTimeoutRef.current = setInterval(updatePrices, 5 * 60 * 1000); // 5 minutes
 
     // Cleanup
     return () => {
@@ -245,25 +245,28 @@ function App() {
       for (const asset of importData.assets) {
         try {
           const assetData = {
-            symbol: {
-              value: asset.symbol,
-              label: asset.symbol,
-              name: asset.name
-            },
+            symbol: typeof asset.symbol === 'string' 
+              ? {
+                  value: asset.symbol,
+                  label: asset.symbol,
+                  name: asset.name,
+                  ...(asset.symbol === 'GOLD' ? { unit: 'grams' } : {})
+                }
+              : asset.symbol,
             name: asset.name,
             purchasePrice: asset.purchasePrice,
             purchaseQuantity: asset.purchaseQuantity,
             purchaseDate: new Date(asset.purchaseDate),
             purchaseCurrency: asset.purchaseCurrency,
             transactionType: asset.transactionType,
-            assetType: 'CRYPTO' as AssetType
+            assetType: ((typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value) === 'GOLD' ? 'COMMODITY' : 'CRYPTO') as AssetType
           };
 
           console.log('Importing asset:', assetData);
           await handleAddAsset(assetData);
         } catch (assetError: any) {
           console.error('Failed to import asset:', asset, assetError);
-          alert(`Failed to import asset ${asset.symbol}: ${assetError.message}`);
+          alert(`Failed to import asset ${typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value}: ${assetError.message}`);
         }
       }
 

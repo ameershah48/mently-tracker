@@ -10,7 +10,7 @@ const GOLD_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 let lastFetchTime: number | null = null;
 let lastCryptoPrices: PriceMap = {} as PriceMap;
 let lastCryptoFetchTime: number | null = null;
-const CRYPTO_CACHE_DURATION = 30 * 1000; // 30 seconds in milliseconds
+const CRYPTO_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 const SETTINGS_KEY = 'settings';
 

@@ -335,7 +335,11 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                                     ? `${transaction.purchaseQuantity.toFixed(2)} grams`
                                     : transaction.purchaseQuantity.toLocaleString(undefined, { maximumFractionDigits: 8 })}
                                 </TableCell>
-                                <TableCell>{formatValue(transaction.purchasePrice / transaction.purchaseQuantity, transaction.purchaseCurrency)}</TableCell>
+                                <TableCell>{
+                                  getSymbolValue(transaction.symbol) === 'GOLD'
+                                    ? formatValue(transaction.purchasePrice, transaction.purchaseCurrency)
+                                    : formatValue(transaction.purchasePrice / transaction.purchaseQuantity, transaction.purchaseCurrency)
+                                }</TableCell>
                                 <TableCell>{formatValue(transaction.purchasePrice, transaction.purchaseCurrency)}</TableCell>
                                 <TableCell>{formatDate(transaction.purchaseDate)}</TableCell>
                                 <TableCell>
