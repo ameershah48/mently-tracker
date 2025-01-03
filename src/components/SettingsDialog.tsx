@@ -15,6 +15,8 @@ import { CryptoSymbolInfo, saveCryptoSymbols } from '../types/crypto';
 import { CurrencySymbolInfo, loadCurrencySymbols, saveCurrencySymbols, Currency } from '../types/asset';
 import { useCurrencySymbols } from '../contexts/CurrencySymbolsContext';
 import { useCryptoSymbols } from '../contexts/CryptoSymbolsContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/Select';
 
 const SETTINGS_KEY = 'settings';
 
@@ -31,6 +33,7 @@ interface SettingsDialogProps {
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const { refreshCurrencySymbols } = useCurrencySymbols();
   const { cryptoSymbols, refreshCryptoSymbols } = useCryptoSymbols();
+  const { displayCurrency, setDefaultCurrency } = useCurrency();
   const [openExchangeKey, setOpenExchangeKey] = useState('');
   const [goldApiKey, setGoldApiKey] = useState('');
   const [localCryptoSymbols, setLocalCryptoSymbols] = useState<CryptoSymbolInfo[]>([]);
@@ -340,75 +343,105 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           </TabsContent>
 
           <TabsContent value="currency" className="space-y-4 mt-4">
-            <div className="grid grid-cols-4 gap-2">
-              <Input
-                placeholder="Symbol (e.g., EUR)"
-                value={newCurrency.value}
-                onChange={(e) => {
-                  const value = e.target.value.toUpperCase();
-                  setNewCurrency({ ...newCurrency, value, label: value });
-                  setCurrencyValidationError('');
-                }}
-              />
-              <Input
-                placeholder="Name (e.g., Euro)"
-                value={newCurrency.name}
-                onChange={(e) => {
-                  setNewCurrency({ ...newCurrency, name: e.target.value });
-                  setCurrencyValidationError('');
-                }}
-              />
-              <Input
-                placeholder="Icon (e.g., 🇪🇺)"
-                value={newCurrency.icon}
-                onChange={(e) => {
-                  setNewCurrency({ ...newCurrency, icon: e.target.value });
-                  setCurrencyValidationError('');
-                }}
-              />
-              <Button
-                type="button"
-                onClick={handleAddCurrency}
-                disabled={!newCurrency.value || !newCurrency.name || !newCurrency.icon || isValidatingCurrency}
-                className="w-full"
-              >
-                {isValidatingCurrency ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Validating...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Currency
-                  </>
-                )}
-              </Button>
-            </div>
-            {currencyValidationError && (
-              <div className="text-sm text-red-500">{currencyValidationError}</div>
-            )}
-            <div className="h-[300px] overflow-y-auto border rounded-md p-2">
-              {currencySymbols.map((currency) => (
-                <div
-                  key={currency.value}
-                  className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-md"
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Default Currency</Label>
+                <Select
+                  value={displayCurrency}
+                  onValueChange={(value: Currency) => setDefaultCurrency(value)}
                 >
-                  <div>
-                    <span className="text-lg mr-2">{currency.icon}</span>
-                    <span className="font-medium">{currency.value}</span>
-                    <span className="text-gray-500 ml-2">({currency.name})</span>
-                  </div>
+                  <SelectTrigger className="w-full">
+                    {currencySymbols.find(c => c.value === displayCurrency)?.label || "Select default currency"}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencySymbols.map(currency => (
+                      <SelectItem key={currency.value} value={currency.value}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{currency.icon}</span>
+                          <span>{currency.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  This currency will be used as the default when you start the application.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Manage Currencies</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  <Input
+                    placeholder="Symbol (e.g., EUR)"
+                    value={newCurrency.value}
+                    onChange={(e) => {
+                      const value = e.target.value.toUpperCase();
+                      setNewCurrency({ ...newCurrency, value, label: value });
+                      setCurrencyValidationError('');
+                    }}
+                  />
+                  <Input
+                    placeholder="Name (e.g., Euro)"
+                    value={newCurrency.name}
+                    onChange={(e) => {
+                      setNewCurrency({ ...newCurrency, name: e.target.value });
+                      setCurrencyValidationError('');
+                    }}
+                  />
+                  <Input
+                    placeholder="Icon (e.g., 🇪🇺)"
+                    value={newCurrency.icon}
+                    onChange={(e) => {
+                      setNewCurrency({ ...newCurrency, icon: e.target.value });
+                      setCurrencyValidationError('');
+                    }}
+                  />
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveCurrency(currency.value)}
-                    className="text-red-500 hover:text-red-700"
+                    type="button"
+                    onClick={handleAddCurrency}
+                    disabled={!newCurrency.value || !newCurrency.name || !newCurrency.icon || isValidatingCurrency}
+                    className="w-full"
                   >
-                    <X className="h-4 w-4" />
+                    {isValidatingCurrency ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        Validating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Currency
+                      </>
+                    )}
                   </Button>
                 </div>
-              ))}
+                {currencyValidationError && (
+                  <div className="text-sm text-red-500">{currencyValidationError}</div>
+                )}
+                <div className="h-[300px] overflow-y-auto border rounded-md p-2">
+                  {currencySymbols.map((currency) => (
+                    <div
+                      key={currency.value}
+                      className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-md"
+                    >
+                      <div>
+                        <span className="text-lg mr-2">{currency.icon}</span>
+                        <span className="font-medium">{currency.value}</span>
+                        <span className="text-gray-500 ml-2">({currency.name})</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveCurrency(currency.value)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </TabsContent>
         </Tabs>

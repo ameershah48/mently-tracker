@@ -19,12 +19,18 @@ interface CurrencyContextType {
   displayCurrency: Currency;
   setDisplayCurrency: (currency: Currency) => void;
   convertAmount: (amount: number, fromCurrency: Currency, toCurrency: Currency) => number;
+  setDefaultCurrency: (currency: Currency) => void;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
+const DEFAULT_CURRENCY_KEY = 'defaultCurrency';
+
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [displayCurrency, setDisplayCurrency] = useState<Currency>('USD');
+  const [displayCurrency, setDisplayCurrency] = useState<Currency>(() => {
+    const savedDefault = localStorage.getItem(DEFAULT_CURRENCY_KEY);
+    return (savedDefault as Currency) || 'USD';
+  });
   const [exchangeRates, setExchangeRates] = useState<Record<Currency, number>>({
     USD: 1,
   });
@@ -83,8 +89,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     return amountInUSD * exchangeRates[toCurrency];
   };
 
+  const setDefaultCurrency = (currency: Currency) => {
+    localStorage.setItem(DEFAULT_CURRENCY_KEY, currency);
+    setDisplayCurrency(currency);
+  };
+
   return (
-    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, convertAmount }}>
+    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, convertAmount, setDefaultCurrency }}>
       {children}
     </CurrencyContext.Provider>
   );

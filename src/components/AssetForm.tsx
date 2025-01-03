@@ -17,6 +17,7 @@ import { Loader2 } from "lucide-react";
 import { Combobox } from './ui/combobox';
 import { useCryptoSymbols } from '../contexts/CryptoSymbolsContext';
 import { useCurrencySymbols } from '../contexts/CurrencySymbolsContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface AssetFormProps {
   onSubmit: (data: AssetFormData) => Promise<void>;
@@ -26,13 +27,14 @@ interface AssetFormProps {
 export function AssetForm({ onSubmit, onError }: AssetFormProps) {
   const { cryptoSymbols } = useCryptoSymbols();
   const { currencySymbols } = useCurrencySymbols();
+  const { displayCurrency } = useCurrency();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<AssetFormData>({
     symbol: cryptoSymbols[0] || { value: '', label: '', name: '' },
     name: cryptoSymbols[0]?.name || '',
     purchaseQuantity: 0,
     purchasePrice: 0,
-    purchaseCurrency: 'USD',
+    purchaseCurrency: displayCurrency,
     purchaseDate: new Date(),
     transactionType: 'BUY',
   });
@@ -47,6 +49,14 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
       }));
     }
   }, [cryptoSymbols, formData.symbol.value]);
+
+  // Update form data when displayCurrency changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      purchaseCurrency: displayCurrency
+    }));
+  }, [displayCurrency]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
