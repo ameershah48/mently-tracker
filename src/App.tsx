@@ -6,7 +6,9 @@ import { AssetList } from './components/AssetList';
 import { AssetChart } from './components/AssetChart';
 import { AssetPieChart } from './components/AssetPieChart';
 import { PortfolioMetrics } from './components/PortfolioMetrics';
-import { CurrencyProvider, useCurrency } from './contexts/CurrencyContext';
+import { CurrencyProvider } from './contexts/CurrencyContext';
+import { CurrencySymbolsProvider } from './contexts/CurrencySymbolsContext';
+import { CryptoSymbolsProvider } from './contexts/CryptoSymbolsContext';
 import { CurrencySelector } from './components/CurrencySelector';
 import { getAllAssets, deleteAsset, updateAssetPrice, updateAsset, saveAsset } from './utils/db';
 import { fetchPrices } from './utils/prices';
@@ -14,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 import { SettingsDialog } from './components/SettingsDialog';
 import { initializeCryptoSymbols } from './types/crypto';
+import { initializeCurrencySymbols } from './types/asset';
 
 function App() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -28,6 +31,7 @@ function App() {
     const initialize = async () => {
       try {
         initializeCryptoSymbols();
+        initializeCurrencySymbols();
         await loadAssets();
       } catch (error) {
         console.error('Failed to initialize:', error);
@@ -42,12 +46,12 @@ function App() {
     if (assets.length === 0) return;
 
     try {
-      const symbols = [...new Set(assets.map(asset => asset.symbol))];
+      const symbols = [...new Set(assets.map(asset => asset.symbol.value))];
       const prices = await fetchPrices(symbols);
 
       let hasUpdates = false;
       const updatedAssets = assets.map(asset => {
-        const newPrice = prices[asset.symbol];
+        const newPrice = prices[asset.symbol.value];
         if (newPrice !== undefined && newPrice !== asset.currentPrice) {
           hasUpdates = true;
           updateAssetPrice(asset.id, newPrice);
@@ -233,122 +237,126 @@ function App() {
   }
 
   return (
-    <CurrencyProvider>
-      <div className="min-h-screen bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
-              {error}
-            </div>
-          )}
-
-          <Card className="mb-8">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div className="flex items-center gap-4">
-                <LineChart className="h-8 w-8 text-primary" />
-                <CardTitle>Asset Tracker</CardTitle>
-                <CurrencySelector />
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExport}
-                    className="flex items-center gap-2 min-w-[100px]"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export
-                  </Button>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleImport}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2 min-w-[100px]"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Import
-                    </Button>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsSettingsOpen(true)}
-                    className="flex items-center gap-2 min-w-[100px]"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Settings
-                  </Button>
+    <CryptoSymbolsProvider>
+      <CurrencySymbolsProvider>
+        <CurrencyProvider>
+          <div className="min-h-screen bg-background">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
+                  {error}
                 </div>
+              )}
+
+              <Card className="mb-8">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div className="flex items-center gap-4">
+                    <LineChart className="h-8 w-8 text-primary" />
+                    <CardTitle>Asset Tracker</CardTitle>
+                    <CurrencySelector />
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExport}
+                        className="flex items-center gap-2 min-w-[100px]"
+                      >
+                        <Download className="h-4 w-4" />
+                        Export
+                      </Button>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleImport}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2 min-w-[100px]"
+                        >
+                          <Upload className="h-4 w-4" />
+                          Import
+                        </Button>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="flex items-center gap-2 min-w-[100px]"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Settings
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+
+              <div className="mb-8">
+                <PortfolioMetrics assets={assets} />
               </div>
-            </CardHeader>
-          </Card>
 
-          <div className="mb-8">
-            <PortfolioMetrics assets={assets} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Add New Asset</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AssetForm
+                      onSubmit={handleAddAsset}
+                      onError={(error) => setError(error.message)}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Portfolio Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AssetPieChart assets={assets} />
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="mb-8">
+                <AssetChart assets={assets} />
+              </div>
+
+              {assets.length > 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Asset List</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AssetList
+                      assets={assets}
+                      onDelete={handleDeleteAsset}
+                      onEdit={handleEditAsset}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <p className="text-muted-foreground">No assets added yet. Add your first asset above!</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            <SettingsDialog
+              isOpen={isSettingsOpen}
+              onClose={handleSettingsClose}
+            />
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Add New Asset</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AssetForm
-                  onSubmit={handleAddAsset}
-                  onError={(error) => setError(error.message)}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Portfolio Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AssetPieChart assets={assets} />
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="mb-8">
-            <AssetChart assets={assets} />
-          </div>
-
-          {assets.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Asset List</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AssetList
-                  assets={assets}
-                  onDelete={handleDeleteAsset}
-                  onEdit={handleEditAsset}
-                />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="text-center py-12">
-                <p className="text-muted-foreground">No assets added yet. Add your first asset above!</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        <SettingsDialog
-          isOpen={isSettingsOpen}
-          onClose={handleSettingsClose}
-        />
-      </div>
-    </CurrencyProvider>
+        </CurrencyProvider>
+      </CurrencySymbolsProvider>
+    </CryptoSymbolsProvider>
   );
 }
 

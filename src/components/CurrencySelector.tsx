@@ -1,6 +1,7 @@
 import React from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Currency } from '../types/asset';
+import { useCurrencySymbols } from '../contexts/CurrencySymbolsContext';
 import {
   Select,
   SelectContent,
@@ -9,22 +10,10 @@ import {
   SelectValue,
 } from './ui/Select';
 
-const CURRENCY_OPTIONS: { value: Currency; label: string; icon: string }[] = [
-  { 
-    value: 'USD', 
-    label: 'USD - US Dollar',
-    icon: '🇺🇸'
-  },
-  { 
-    value: 'MYR', 
-    label: 'MYR - Malaysian Ringgit',
-    icon: '🇲🇾'
-  },
-];
-
 export function CurrencySelector() {
   const { displayCurrency, setDisplayCurrency } = useCurrency();
-  const selectedCurrency = CURRENCY_OPTIONS.find(opt => opt.value === displayCurrency);
+  const { currencySymbols } = useCurrencySymbols();
+  const selectedCurrency = currencySymbols.find(opt => opt.value === displayCurrency);
 
   return (
     <Select
@@ -38,7 +27,7 @@ export function CurrencySelector() {
         </div>
       </SelectTrigger>
       <SelectContent>
-        {CURRENCY_OPTIONS.map(option => (
+        {currencySymbols.map(option => (
           <SelectItem key={option.value} value={option.value}>
             <div className="flex items-center gap-2">
               <span className="text-lg">{option.icon}</span>

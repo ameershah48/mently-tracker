@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { saveAsset } from '../utils/db';
-import { CryptoSymbolInfo, loadCryptoSymbols } from '../types/crypto';
+import { CryptoSymbolInfo } from '../types/crypto';
 import { AssetFormData, Currency, TransactionType } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
@@ -15,6 +15,8 @@ import {
 } from './ui/Select';
 import { Loader2 } from "lucide-react";
 import { Combobox } from './ui/combobox';
+import { useCryptoSymbols } from '../contexts/CryptoSymbolsContext';
+import { useCurrencySymbols } from '../contexts/CurrencySymbolsContext';
 
 interface AssetFormProps {
   onSubmit: (data: AssetFormData) => Promise<void>;
@@ -22,11 +24,12 @@ interface AssetFormProps {
 }
 
 export function AssetForm({ onSubmit, onError }: AssetFormProps) {
+  const { cryptoSymbols } = useCryptoSymbols();
+  const { currencySymbols } = useCurrencySymbols();
   const [isLoading, setIsLoading] = useState(false);
-  const [cryptoOptions, setCryptoOptions] = useState<CryptoSymbolInfo[]>([]);
   const [formData, setFormData] = useState<AssetFormData>({
-    symbol: '',
-    name: '',
+    symbol: cryptoSymbols[0] || { value: '', label: '', name: '' },
+    name: cryptoSymbols[0]?.name || '',
     purchaseQuantity: 0,
     purchasePrice: 0,
     purchaseCurrency: 'USD',
@@ -34,35 +37,16 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
     transactionType: 'BUY',
   });
 
-  // Load crypto symbols and set initial form data
+  // Update form data when cryptoSymbols changes and formData.symbol is not in the list
   useEffect(() => {
-    const loadSymbols = () => {
-      try {
-        const symbols = loadCryptoSymbols();
-        console.log('Loaded symbols in AssetForm:', symbols);
-        setCryptoOptions(symbols);
-        
-        // Set initial symbol and name if available and not already set
-        if (symbols.length > 0 && !formData.symbol) {
-          setFormData(prev => ({
-            ...prev,
-            symbol: symbols[0].value,
-            name: symbols[0].name,
-          }));
-        }
-      } catch (error) {
-        console.error('Failed to load crypto symbols:', error);
-        onError(new Error('Failed to load available cryptocurrencies'));
-      }
-    };
-
-    loadSymbols();
-
-    // Set up an interval to check for symbol changes
-    const interval = setInterval(loadSymbols, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
+    if (cryptoSymbols.length > 0 && !cryptoSymbols.find(s => s.value === formData.symbol.value)) {
+      setFormData(prev => ({
+        ...prev,
+        symbol: cryptoSymbols[0],
+        name: cryptoSymbols[0].name
+      }));
+    }
+  }, [cryptoSymbols, formData.symbol.value]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,13 +60,13 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
       await saveAsset(formData);
       
       // Fetch historical prices in the background
-      if (formData.symbol === 'GOLD') {
+      if (formData.symbol.value === 'GOLD') {
         fetchHistoricalGoldPrices(formData.purchaseDate).catch(error => {
           console.error('Failed to fetch historical gold prices:', error);
         });
       } else {
-        fetchHistoricalCryptoPrices(formData.symbol, formData.purchaseDate).catch(error => {
-          console.error(`Failed to fetch historical ${formData.symbol} prices:`, error);
+        fetchHistoricalCryptoPrices(formData.symbol.value, formData.purchaseDate).catch(error => {
+          console.error(`Failed to fetch historical ${formData.symbol.value} prices:`, error);
         });
       }
       
@@ -105,12 +89,12 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
   };
 
   const handleAssetSelect = (value: string) => {
-    const selectedAsset = cryptoOptions.find(option => option.value === value);
+    const selectedAsset = cryptoSymbols.find(option => option.value === value);
     if (selectedAsset) {
       console.log('Selected asset:', selectedAsset);
       setFormData(prev => ({
         ...prev,
-        symbol: selectedAsset.value,
+        symbol: selectedAsset,
         name: selectedAsset.name,
         purchasePrice: prev.transactionType === 'EARN' ? 0 : prev.purchasePrice,
       }));
@@ -143,12 +127,12 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
       <div className="space-y-2">
         <Label htmlFor="asset">Asset</Label>
         <Combobox
-          options={cryptoOptions}
-          value={formData.symbol}
+          options={cryptoSymbols}
+          value={formData.symbol.value}
           onValueChange={handleAssetSelect}
           placeholder="Select an asset"
         />
-        {cryptoOptions.length === 0 && (
+        {cryptoSymbols.length === 0 && (
           <div className="text-sm text-yellow-600">
             No cryptocurrencies available. Please add some in settings.
           </div>
@@ -167,7 +151,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
             ...prev,
             purchaseQuantity: parseFloat(e.target.value) || 0
           }))}
-          placeholder={formData.symbol === 'GOLD' ? 'Enter amount in grams (e.g., 4.25)' : 'Enter quantity'}
+          placeholder={formData.symbol.value === 'GOLD' ? 'Enter amount in grams (e.g., 4.25)' : 'Enter quantity'}
         />
       </div>
 
@@ -194,12 +178,18 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
               purchaseCurrency: value
             }))}
           >
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Currency" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="USD">USD</SelectItem>
-              <SelectItem value="MYR">MYR</SelectItem>
+              {currencySymbols.map(currency => (
+                <SelectItem key={currency.value} value={currency.value}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{currency.icon}</span>
+                    <span>{currency.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -210,9 +200,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         <Input
           id="date"
           type="date"
-          value={formData.purchaseDate instanceof Date && !isNaN(formData.purchaseDate.getTime()) 
-            ? formData.purchaseDate.toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0]}
+          value={formData.purchaseDate.toISOString().split('T')[0]}
           onChange={e => setFormData(prev => ({
             ...prev,
             purchaseDate: new Date(e.target.value)
@@ -220,18 +208,14 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading || cryptoOptions.length === 0}>
+      <Button type="submit" disabled={isLoading} className="w-full">
         {isLoading ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {formData.transactionType === 'BUY' ? 'Adding Asset...' : 
-             formData.transactionType === 'SELL' ? 'Selling Asset...' : 
-             'Recording Earnings...'}
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Adding Asset...
           </>
         ) : (
-          formData.transactionType === 'BUY' ? 'Add Asset' : 
-          formData.transactionType === 'SELL' ? 'Sell Asset' : 
-          'Record Earnings'
+          'Add Asset'
         )}
       </Button>
     </form>

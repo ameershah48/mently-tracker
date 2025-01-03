@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Currency } from '../types/asset';
+import { useCurrencySymbols } from './CurrencySymbolsContext';
 
 const SETTINGS_KEY = 'settings';
 
@@ -26,8 +27,8 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [displayCurrency, setDisplayCurrency] = useState<Currency>('USD');
   const [exchangeRates, setExchangeRates] = useState<Record<Currency, number>>({
     USD: 1,
-    MYR: 4.71, // Default rate, will be updated by API
   });
+  const { currencySymbols } = useCurrencySymbols();
 
   useEffect(() => {
     // Fetch exchange rates from an API
@@ -39,14 +40,26 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // Get all currency symbols except USD (base currency)
+        const symbols = currencySymbols
+          .filter(c => c.value !== 'USD')
+          .map(c => c.value)
+          .join(',');
+
+        if (!symbols) {
+          setExchangeRates({ USD: 1 });
+          return;
+        }
+
         const response = await fetch(
-          `https://openexchangerates.org/api/latest.json?app_id=${openExchangeKey}&base=USD&symbols=MYR`
+          `https://openexchangerates.org/api/latest.json?app_id=${openExchangeKey}&base=USD&symbols=${symbols}`
         );
         const data = await response.json();
+        
         if (data.rates) {
           setExchangeRates({
             USD: 1,
-            MYR: data.rates.MYR,
+            ...data.rates
           });
         }
       } catch (error) {
@@ -59,7 +72,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const interval = setInterval(fetchExchangeRates, 60 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [currencySymbols]); // Re-run when currency symbols change
 
   const convertAmount = (amount: number, fromCurrency: Currency, toCurrency: Currency): number => {
     if (fromCurrency === toCurrency) return amount;
