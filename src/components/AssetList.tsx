@@ -13,6 +13,16 @@ import {
 } from './ui/table';
 import { Button } from './ui/button';
 import { Edit2, Trash2, ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 
 interface AssetListProps {
   assets: Asset[];
@@ -24,6 +34,7 @@ type SortDirection = 'asc' | 'desc';
 
 export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [deletingAsset, setDeletingAsset] = useState<Asset | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [expandedAssets, setExpandedAssets] = useState<Set<string>>(new Set());
   const { displayCurrency, convertAmount } = useCurrency();
@@ -339,16 +350,39 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                                     >
                                       <Edit2 className="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDelete(transaction.id);
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <AlertDialog open={deletingAsset?.id === transaction.id} onOpenChange={(open) => !open && setDeletingAsset(null)}>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeletingAsset(transaction);
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Are you sure you want to delete this transaction? This action cannot be undone.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel onClick={() => setDeletingAsset(null)}>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={async () => {
+                                              if (deletingAsset) {
+                                                await onDelete(deletingAsset.id);
+                                                setDeletingAsset(null);
+                                              }
+                                            }}
+                                          >
+                                            Delete
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
                                   </div>
                                 </TableCell>
                               </TableRow>
