@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Asset, EditAssetData, Currency } from '../types/asset';
+import { Asset, EditAssetData, Currency, AssetSymbolInfo } from '../types/asset';
 import { EditAssetDialog } from './EditAssetDialog';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { formatDate } from '../utils/date';
@@ -31,7 +31,8 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
   // Calculate net positions for each asset
   const netPositions = useMemo(() => {
     const positions = new Map<string, {
-      symbol: string;
+      id: string;
+      symbol: string | AssetSymbolInfo;
       name: string;
       netQuantity: number;
       totalBuyValue: number;
@@ -42,8 +43,9 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
     }>();
 
     assets.forEach(asset => {
-      const key = asset.symbol;
+      const key = typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value;
       const existing = positions.get(key) || {
+        id: crypto.randomUUID(),
         symbol: asset.symbol,
         name: asset.name,
         netQuantity: 0,
@@ -55,14 +57,13 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
       };
 
       // Update quantity based on transaction type
-      const quantityChange = asset.transactionType === 'SELL' || asset.transactionType === 'CONVERT' 
-        ? -asset.purchaseQuantity 
-        : asset.transactionType === 'CONVERT_FROM'
-        ? asset.purchaseQuantity
-        : asset.purchaseQuantity;
+      const quantityChange = 
+        asset.transactionType === 'SELL' ? -asset.purchaseQuantity :
+        (asset.transactionType === 'BUY' || asset.transactionType === 'EARN') ? asset.purchaseQuantity :
+        0;
       existing.netQuantity += quantityChange;
 
-      // Only add to total buy value for buy transactions (not EARN, CONVERT, or CONVERT_FROM)
+      // Only add to total buy value for buy transactions
       if (asset.transactionType === 'BUY') {
         const convertedBuyValue = convertAmount(
           asset.purchasePrice,
@@ -93,7 +94,7 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
 
   const calculateGainLoss = (position: typeof netPositions[0]) => {
     // Get all transactions for this asset
-    const assetTransactions = assets.filter(a => a.symbol === position.symbol);
+    const assetTransactions = assets.filter(a => getSymbolValue(a.symbol) === getSymbolValue(position.symbol));
     
     // Sort transactions by date for FIFO calculation
     const sortedTransactions = [...assetTransactions].sort(
@@ -106,8 +107,7 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
 
     // Process each transaction in chronological order
     sortedTransactions.forEach(transaction => {
-      if (transaction.transactionType === 'BUY' || transaction.transactionType === 'EARN' || 
-          transaction.transactionType === 'CONVERT' || transaction.transactionType === 'CONVERT_FROM') {
+      if (transaction.transactionType === 'BUY' || transaction.transactionType === 'EARN') {
         // Add to available lots
         availableLots.push({
           quantity: transaction.purchaseQuantity,
@@ -186,15 +186,24 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                        convertAmount(b.totalBuyValue, b.totalBuyCurrency, displayCurrency));
   });
 
-  const toggleAssetExpanded = (symbol: string) => {
+  const getSymbolValue = (symbol: string | AssetSymbolInfo): string => 
+    typeof symbol === 'string' ? symbol : (symbol as AssetSymbolInfo).value;
+
+  const toggleAssetExpanded = (symbol: string | AssetSymbolInfo) => {
+    const symbolValue = getSymbolValue(symbol);
     const newExpanded = new Set(expandedAssets);
-    if (newExpanded.has(symbol)) {
-      newExpanded.delete(symbol);
+    if (newExpanded.has(symbolValue)) {
+      newExpanded.delete(symbolValue);
     } else {
-      newExpanded.add(symbol);
+      newExpanded.add(symbolValue);
     }
     setExpandedAssets(newExpanded);
   };
+
+  const [positionKeys] = useState(() => new Map(netPositions.map(p => [
+    typeof p.symbol === 'string' ? p.symbol : (p.symbol as AssetSymbolInfo).value,
+    p.id
+  ])));
 
   return (
     <>
@@ -234,11 +243,12 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
         <TableBody>
           {sortedPositions.map(position => {
             const gainLoss = calculateGainLoss(position);
-            const isExpanded = expandedAssets.has(position.symbol);
-            const transactions = assets.filter(a => a.symbol === position.symbol);
+            const symbolValue = getSymbolValue(position.symbol);
+            const isExpanded = expandedAssets.has(symbolValue);
+            const transactions = assets.filter(a => getSymbolValue(a.symbol) === symbolValue);
             
             return (
-              <React.Fragment key={position.symbol}>
+              <React.Fragment key={positionKeys.get(symbolValue)}>
                 <TableRow className="cursor-pointer hover:bg-gray-50" onClick={() => toggleAssetExpanded(position.symbol)}>
                   <TableCell>
                     {isExpanded ? (
@@ -249,7 +259,7 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                   </TableCell>
                   <TableCell>{position.name}</TableCell>
                   <TableCell>
-                    {position.symbol === 'GOLD'
+                    {getSymbolValue(position.symbol) === 'GOLD'
                       ? `${position.netQuantity.toFixed(2)} grams`
                       : position.netQuantity.toLocaleString(undefined, { maximumFractionDigits: 8 })}
                   </TableCell>
@@ -310,7 +320,7 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                                   </span>
                                 </TableCell>
                                 <TableCell>
-                                  {transaction.symbol === 'GOLD'
+                                  {getSymbolValue(transaction.symbol) === 'GOLD'
                                     ? `${transaction.purchaseQuantity.toFixed(2)} grams`
                                     : transaction.purchaseQuantity.toLocaleString(undefined, { maximumFractionDigits: 8 })}
                                 </TableCell>

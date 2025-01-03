@@ -1,6 +1,9 @@
 import { CryptoSymbolInfo } from './crypto';
+import { CommodityInfo } from './commodities';
 
 export type Currency = string;
+
+export type AssetType = 'CRYPTO' | 'COMMODITY';
 
 export interface CurrencySymbolInfo {
   value: Currency;
@@ -47,10 +50,13 @@ export function saveCurrencySymbols(symbols: CurrencySymbolInfo[]): void {
 
 export type TransactionType = 'BUY' | 'SELL' | 'EARN';
 
+export type AssetSymbolInfo = CryptoSymbolInfo | CommodityInfo;
+
 export interface Asset {
   id: string;
-  symbol: CryptoSymbolInfo;
+  symbol: AssetSymbolInfo;
   name: string;
+  assetType: AssetType;
   purchaseQuantity: number;
   purchasePrice: number;
   purchaseCurrency: Currency;
@@ -62,8 +68,9 @@ export interface Asset {
 }
 
 export interface AssetFormData {
-  symbol: CryptoSymbolInfo;
+  symbol: AssetSymbolInfo;
   name: string;
+  assetType: AssetType;
   purchaseQuantity: number;
   purchasePrice: number;
   purchaseCurrency: Currency;

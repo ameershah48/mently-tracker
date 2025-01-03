@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { saveAsset } from '../utils/db';
 import { CryptoSymbolInfo } from '../types/crypto';
-import { AssetFormData, Currency, TransactionType } from '../types/asset';
+import { CommodityInfo } from '../types/commodities';
+import { AssetFormData, Currency, TransactionType, AssetType } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
 import { Button } from './ui/button';
@@ -16,6 +17,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { Combobox } from './ui/combobox';
 import { useCryptoSymbols } from '../contexts/CryptoSymbolsContext';
+import { useCommodities } from '../contexts/CommoditiesContext';
 import { useCurrencySymbols } from '../contexts/CurrencySymbolsContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 
@@ -26,12 +28,24 @@ interface AssetFormProps {
 
 export function AssetForm({ onSubmit, onError }: AssetFormProps) {
   const { cryptoSymbols } = useCryptoSymbols();
+  const { commodities } = useCommodities();
   const { currencySymbols } = useCurrencySymbols();
   const { displayCurrency } = useCurrency();
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedAssetType, setSelectedAssetType] = useState<AssetType>('CRYPTO');
+
+  // Filter out any commodity symbols that might have been cached in crypto symbols
+  const filteredCryptoSymbols = cryptoSymbols.filter(s => !commodities.some(c => c.value === s.value));
+
+  const allAssetOptions = [
+    ...filteredCryptoSymbols.map(s => ({ ...s, type: 'CRYPTO' as AssetType })),
+    ...commodities.map(c => ({ ...c, type: 'COMMODITY' as AssetType }))
+  ];
+
   const [formData, setFormData] = useState<AssetFormData>({
-    symbol: cryptoSymbols[0] || { value: '', label: '', name: '' },
-    name: cryptoSymbols[0]?.name || '',
+    symbol: filteredCryptoSymbols[0] || { value: '', label: '', name: '' },
+    name: filteredCryptoSymbols[0]?.name || '',
+    assetType: 'CRYPTO',
     purchaseQuantity: 0,
     purchasePrice: 0,
     purchaseCurrency: displayCurrency,
@@ -41,14 +55,26 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
 
   // Update form data when cryptoSymbols changes and formData.symbol is not in the list
   useEffect(() => {
-    if (cryptoSymbols.length > 0 && !cryptoSymbols.find(s => s.value === formData.symbol.value)) {
-      setFormData(prev => ({
-        ...prev,
-        symbol: cryptoSymbols[0],
-        name: cryptoSymbols[0].name
-      }));
+    const currentSymbol = formData.symbol.value;
+    const isValidSymbol = selectedAssetType === 'CRYPTO' 
+      ? filteredCryptoSymbols.some(s => s.value === currentSymbol)
+      : commodities.some(c => c.value === currentSymbol);
+
+    if (!isValidSymbol) {
+      const defaultSymbol = selectedAssetType === 'CRYPTO' 
+        ? filteredCryptoSymbols[0] 
+        : commodities[0];
+
+      if (defaultSymbol) {
+        setFormData(prev => ({
+          ...prev,
+          symbol: defaultSymbol,
+          name: defaultSymbol.name,
+          assetType: selectedAssetType
+        }));
+      }
     }
-  }, [cryptoSymbols, formData.symbol.value]);
+  }, [cryptoSymbols, commodities, selectedAssetType, formData.symbol.value]);
 
   // Update form data when displayCurrency changes
   useEffect(() => {
@@ -61,32 +87,30 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.symbol || !formData.name) {
-      onError(new Error('Please select a cryptocurrency'));
+      onError(new Error('Please select an asset'));
       return;
     }
 
     setIsLoading(true);
     try {
-      await saveAsset(formData);
-      
       // Fetch historical prices in the background
-      if (formData.symbol.value === 'GOLD') {
+      if (formData.assetType === 'COMMODITY' && formData.symbol.value === 'GOLD') {
         fetchHistoricalGoldPrices(formData.purchaseDate).catch(error => {
           console.error('Failed to fetch historical gold prices:', error);
         });
-      } else {
+      } else if (formData.assetType === 'CRYPTO') {
         fetchHistoricalCryptoPrices(formData.symbol.value, formData.purchaseDate).catch(error => {
           console.error(`Failed to fetch historical ${formData.symbol.value} prices:`, error);
         });
       }
       
       await onSubmit(formData);
-      // Reset form but keep the current symbol
+      // Reset form but keep the current symbol and type
       setFormData(prev => ({
         ...prev,
         purchaseQuantity: 0,
         purchasePrice: 0,
-        purchaseCurrency: 'USD',
+        purchaseCurrency: displayCurrency,
         purchaseDate: new Date(),
         transactionType: 'BUY',
       }));
@@ -99,20 +123,57 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
   };
 
   const handleAssetSelect = (value: string) => {
-    const selectedAsset = cryptoSymbols.find(option => option.value === value);
+    const selectedAsset = allAssetOptions.find(option => option.value === value);
     if (selectedAsset) {
       console.log('Selected asset:', selectedAsset);
       setFormData(prev => ({
         ...prev,
         symbol: selectedAsset,
         name: selectedAsset.name,
+        assetType: selectedAsset.type,
         purchasePrice: prev.transactionType === 'EARN' ? 0 : prev.purchasePrice,
       }));
+      setSelectedAssetType(selectedAsset.type);
     }
+  };
+
+  const getQuantityPlaceholder = () => {
+    if (formData.assetType === 'COMMODITY') {
+      const commodity = commodities.find(c => c.value === formData.symbol.value);
+      return `Enter amount in ${commodity?.unit || 'units'} (e.g., 4.25)`;
+    }
+    return 'Enter quantity';
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="assetType">Asset Type</Label>
+        <Select
+          value={selectedAssetType}
+          onValueChange={(value: AssetType) => {
+            setSelectedAssetType(value);
+            const defaultSymbol = value === 'CRYPTO' ? cryptoSymbols[0] : commodities[0];
+            if (defaultSymbol) {
+              setFormData(prev => ({
+                ...prev,
+                symbol: defaultSymbol,
+                name: defaultSymbol.name,
+                assetType: value
+              }));
+            }
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select asset type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="CRYPTO">Cryptocurrency</SelectItem>
+            <SelectItem value="COMMODITY">Commodity</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="transactionType">Transaction Type</Label>
         <Select
@@ -137,14 +198,19 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
       <div className="space-y-2">
         <Label htmlFor="asset">Asset</Label>
         <Combobox
-          options={cryptoSymbols}
+          options={selectedAssetType === 'CRYPTO' ? filteredCryptoSymbols : commodities}
           value={formData.symbol.value}
           onValueChange={handleAssetSelect}
           placeholder="Select an asset"
         />
-        {cryptoSymbols.length === 0 && (
+        {selectedAssetType === 'CRYPTO' && filteredCryptoSymbols.length === 0 && (
           <div className="text-sm text-yellow-600">
             No cryptocurrencies available. Please add some in settings.
+          </div>
+        )}
+        {selectedAssetType === 'COMMODITY' && commodities.length === 0 && (
+          <div className="text-sm text-yellow-600">
+            No commodities available. Please add some in settings.
           </div>
         )}
       </div>
@@ -161,7 +227,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
             ...prev,
             purchaseQuantity: parseFloat(e.target.value) || 0
           }))}
-          placeholder={formData.symbol.value === 'GOLD' ? 'Enter amount in grams (e.g., 4.25)' : 'Enter quantity'}
+          placeholder={getQuantityPlaceholder()}
         />
       </div>
 

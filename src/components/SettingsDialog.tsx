@@ -12,9 +12,11 @@ import {
 } from './ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { CryptoSymbolInfo, saveCryptoSymbols } from '../types/crypto';
+import { CommodityInfo, saveCommodities } from '../types/commodities';
 import { CurrencySymbolInfo, loadCurrencySymbols, saveCurrencySymbols, Currency } from '../types/asset';
 import { useCurrencySymbols } from '../contexts/CurrencySymbolsContext';
 import { useCryptoSymbols } from '../contexts/CryptoSymbolsContext';
+import { useCommodities } from '../contexts/CommoditiesContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/Select';
 
@@ -33,12 +35,20 @@ interface SettingsDialogProps {
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const { refreshCurrencySymbols } = useCurrencySymbols();
   const { cryptoSymbols, refreshCryptoSymbols } = useCryptoSymbols();
+  const { commodities, refreshCommodities } = useCommodities();
   const { displayCurrency, setDefaultCurrency } = useCurrency();
   const [openExchangeKey, setOpenExchangeKey] = useState('');
   const [goldApiKey, setGoldApiKey] = useState('');
   const [localCryptoSymbols, setLocalCryptoSymbols] = useState<CryptoSymbolInfo[]>([]);
+  const [localCommodities, setLocalCommodities] = useState<CommodityInfo[]>([]);
   const [currencySymbols, setCurrencySymbols] = useState<CurrencySymbolInfo[]>([]);
   const [newSymbol, setNewSymbol] = useState({ value: '', label: '', name: '' });
+  const [newCommodity, setNewCommodity] = useState<Omit<CommodityInfo, 'category'> & { category?: string }>({ 
+    value: '', 
+    label: '', 
+    name: '', 
+    unit: '' 
+  });
   const [newCurrency, setNewCurrency] = useState<Omit<CurrencySymbolInfo, 'value'> & { value: string }>({ 
     value: '', 
     label: '', 
@@ -46,8 +56,10 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     icon: '' 
   });
   const [validationError, setValidationError] = useState('');
+  const [commodityValidationError, setCommodityValidationError] = useState('');
   const [currencyValidationError, setCurrencyValidationError] = useState('');
   const [isValidating, setIsValidating] = useState(false);
+  const [isValidatingCommodity, setIsValidatingCommodity] = useState(false);
   const [isValidatingCurrency, setIsValidatingCurrency] = useState(false);
 
   useEffect(() => {
@@ -60,16 +72,14 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
         setGoldApiKey(settings.goldApiKey || '');
       }
 
-      // Initialize local state with current crypto symbols
+      // Initialize local state
       setLocalCryptoSymbols(cryptoSymbols);
-      // Load currency symbols
+      setLocalCommodities(commodities);
       setCurrencySymbols(loadCurrencySymbols());
     }
-  }, [isOpen, cryptoSymbols]);
+  }, [isOpen, cryptoSymbols, commodities]);
 
   const validateSymbol = async (symbol: string): Promise<boolean> => {
-    if (symbol === 'GOLD') return true; // GOLD is always valid as it's handled separately
-    
     try {
       const response = await fetch(
         `https://min-api.cryptocompare.com/data/price?fsym=${symbol}&tsyms=USD`
@@ -92,6 +102,37 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
       setValidationError('Failed to validate symbol');
       return false;
     }
+  };
+
+  const validateCommodity = async (symbol: string): Promise<boolean> => {
+    if (symbol === 'GOLD') {
+      try {
+        const { goldApiKey } = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+        if (!goldApiKey) {
+          setCommodityValidationError('Gold API key is required to validate gold prices');
+          return false;
+        }
+        
+        const response = await fetch('https://www.goldapi.io/api/XAU/USD', {
+          headers: {
+            'x-access-token': goldApiKey
+          }
+        });
+        
+        if (!response.ok) {
+          setCommodityValidationError('Could not validate gold price');
+          return false;
+        }
+        
+        setCommodityValidationError('');
+        return true;
+      } catch (error) {
+        setCommodityValidationError('Failed to validate gold price');
+        return false;
+      }
+    }
+    // Add validation for other commodities here
+    return true;
   };
 
   const validateCurrency = async (currency: string): Promise<boolean> => {
@@ -134,11 +175,16 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
       };
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
-      // Save crypto and currency symbols
+      // Save symbols
       saveCryptoSymbols(localCryptoSymbols);
+      saveCommodities(localCommodities);
       saveCurrencySymbols(currencySymbols);
-      refreshCryptoSymbols(); // Refresh the global crypto symbols
-      refreshCurrencySymbols(); // Refresh the global currency symbols
+      
+      // Refresh contexts
+      refreshCryptoSymbols();
+      refreshCommodities();
+      refreshCurrencySymbols();
+      
       onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -169,6 +215,41 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
         setValidationError('Failed to validate symbol');
       } finally {
         setIsValidating(false);
+      }
+    }
+  };
+
+  const handleAddCommodity = async () => {
+    if (newCommodity.value && newCommodity.name && newCommodity.unit) {
+      setIsValidatingCommodity(true);
+      setCommodityValidationError('');
+      
+      try {
+        // Check if commodity already exists
+        if (localCommodities.some(c => c.value === newCommodity.value)) {
+          setCommodityValidationError('Commodity already exists');
+          setIsValidatingCommodity(false);
+          return;
+        }
+
+        // Validate commodity if needed
+        const isValid = await validateCommodity(newCommodity.value);
+        
+        if (isValid) {
+          const commodityToAdd: CommodityInfo = {
+            value: newCommodity.value,
+            label: newCommodity.label || newCommodity.value,
+            name: newCommodity.name,
+            unit: newCommodity.unit,
+            category: newCommodity.category as any || 'PRECIOUS_METAL'
+          };
+          setLocalCommodities([...localCommodities, commodityToAdd]);
+          setNewCommodity({ value: '', label: '', name: '', unit: '' });
+        }
+      } catch (error) {
+        setCommodityValidationError('Failed to validate commodity');
+      } finally {
+        setIsValidatingCommodity(false);
       }
     }
   };
@@ -211,70 +292,82 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     setLocalCryptoSymbols(localCryptoSymbols.filter(s => s.value !== symbolValue));
   };
 
+  const handleRemoveCommodity = (commodityValue: string) => {
+    setLocalCommodities(localCommodities.filter(c => c.value !== commodityValue));
+  };
+
   const handleRemoveCurrency = (currencyValue: string) => {
     setCurrencySymbols(currencySymbols.filter(c => c.value !== currencyValue));
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="api-keys" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="api-keys" className="flex items-center gap-2">
-              <Key className="h-4 w-4" />
+
+        <Tabs defaultValue="api">
+          <TabsList>
+            <TabsTrigger value="api">
+              <Key className="h-4 w-4 mr-2" />
               API Keys
             </TabsTrigger>
-            <TabsTrigger value="crypto" className="flex items-center gap-2">
-              <Coins className="h-4 w-4" />
-              Crypto Symbols
+            <TabsTrigger value="crypto">
+              <Coins className="h-4 w-4 mr-2" />
+              Cryptocurrencies
             </TabsTrigger>
-            <TabsTrigger value="currency" className="flex items-center gap-2">
-              <Globe className="h-4 w-4" />
+            <TabsTrigger value="commodities">
+              <Globe className="h-4 w-4 mr-2" />
+              Commodities
+            </TabsTrigger>
+            <TabsTrigger value="currency">
+              <Globe className="h-4 w-4 mr-2" />
               Currencies
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="api-keys" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="openexchange">OpenExchange API Key</Label>
-                <Input
-                  id="openexchange"
-                  type="text"
-                  value={openExchangeKey}
-                  onChange={(e) => setOpenExchangeKey(e.target.value)}
-                  placeholder="Enter OpenExchange API key"
-                />
+          <TabsContent value="api" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>OpenExchange API Key</Label>
+              <Input
+                type="password"
+                value={openExchangeKey}
+                onChange={(e) => setOpenExchangeKey(e.target.value)}
+                placeholder="Enter your OpenExchange API key"
+              />
+              <p className="text-sm text-muted-foreground">
+                Required for currency conversion. Get your key at{' '}
                 <a
-                  href="https://openexchangerates.org/signup"
+                  href="https://openexchangerates.org/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-500 hover:underline"
+                  className="text-primary hover:underline"
                 >
-                  Register for OpenExchange API key
+                  openexchangerates.org
                 </a>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="goldapi">Gold API Key</Label>
-                <Input
-                  id="goldapi"
-                  type="text"
-                  value={goldApiKey}
-                  onChange={(e) => setGoldApiKey(e.target.value)}
-                  placeholder="Enter Gold API key"
-                />
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Gold API Key</Label>
+              <Input
+                type="password"
+                value={goldApiKey}
+                onChange={(e) => setGoldApiKey(e.target.value)}
+                placeholder="Enter your Gold API key"
+              />
+              <p className="text-sm text-muted-foreground">
+                Required for gold price tracking. Get your key at{' '}
                 <a
-                  href="https://www.goldapi.io/dashboard"
+                  href="https://www.goldapi.io/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-500 hover:underline"
+                  className="text-primary hover:underline"
                 >
-                  Register for Gold API key
+                  goldapi.io
                 </a>
-              </div>
+              </p>
             </div>
           </TabsContent>
 
@@ -342,6 +435,80 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             </div>
           </TabsContent>
 
+          <TabsContent value="commodities" className="space-y-4 mt-4">
+            <div className="grid grid-cols-4 gap-2">
+              <Input
+                placeholder="Symbol (e.g., GOLD)"
+                value={newCommodity.value}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setNewCommodity({ ...newCommodity, value, label: value });
+                  setCommodityValidationError('');
+                }}
+              />
+              <Input
+                placeholder="Name (e.g., Gold)"
+                value={newCommodity.name}
+                onChange={(e) => {
+                  setNewCommodity({ ...newCommodity, name: e.target.value });
+                  setCommodityValidationError('');
+                }}
+              />
+              <Input
+                placeholder="Unit (e.g., grams)"
+                value={newCommodity.unit}
+                onChange={(e) => {
+                  setNewCommodity({ ...newCommodity, unit: e.target.value });
+                  setCommodityValidationError('');
+                }}
+              />
+              <Button
+                type="button"
+                onClick={handleAddCommodity}
+                disabled={!newCommodity.value || !newCommodity.name || !newCommodity.unit || isValidatingCommodity}
+                className="w-full"
+              >
+                {isValidatingCommodity ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Validating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Commodity
+                  </>
+                )}
+              </Button>
+            </div>
+            {commodityValidationError && (
+              <div className="text-sm text-red-500">{commodityValidationError}</div>
+            )}
+            <div className="h-[300px] overflow-y-auto border rounded-md p-2">
+              {localCommodities.map((commodity) => (
+                <div
+                  key={commodity.value}
+                  className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-md"
+                >
+                  <div>
+                    <span className="font-medium">{commodity.value}</span>
+                    <span className="text-gray-500 ml-2">
+                      ({commodity.name} - {commodity.unit})
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveCommodity(commodity.value)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
           <TabsContent value="currency" className="space-y-4 mt-4">
             <div className="space-y-4">
               <div className="space-y-2">
@@ -369,89 +536,82 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label>Manage Currencies</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  <Input
-                    placeholder="Symbol (e.g., EUR)"
-                    value={newCurrency.value}
-                    onChange={(e) => {
-                      const value = e.target.value.toUpperCase();
-                      setNewCurrency({ ...newCurrency, value, label: value });
-                      setCurrencyValidationError('');
-                    }}
-                  />
-                  <Input
-                    placeholder="Name (e.g., Euro)"
-                    value={newCurrency.name}
-                    onChange={(e) => {
-                      setNewCurrency({ ...newCurrency, name: e.target.value });
-                      setCurrencyValidationError('');
-                    }}
-                  />
-                  <Input
-                    placeholder="Icon (e.g., 🇪🇺)"
-                    value={newCurrency.icon}
-                    onChange={(e) => {
-                      setNewCurrency({ ...newCurrency, icon: e.target.value });
-                      setCurrencyValidationError('');
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleAddCurrency}
-                    disabled={!newCurrency.value || !newCurrency.name || !newCurrency.icon || isValidatingCurrency}
-                    className="w-full"
+              <div className="grid grid-cols-4 gap-2">
+                <Input
+                  placeholder="Code (e.g., EUR)"
+                  value={newCurrency.value}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setNewCurrency({ ...newCurrency, value, label: value });
+                    setCurrencyValidationError('');
+                  }}
+                />
+                <Input
+                  placeholder="Name (e.g., Euro)"
+                  value={newCurrency.name}
+                  onChange={(e) => {
+                    setNewCurrency({ ...newCurrency, name: e.target.value });
+                    setCurrencyValidationError('');
+                  }}
+                />
+                <Input
+                  placeholder="Icon (e.g., 🇪🇺)"
+                  value={newCurrency.icon}
+                  onChange={(e) => {
+                    setNewCurrency({ ...newCurrency, icon: e.target.value });
+                    setCurrencyValidationError('');
+                  }}
+                />
+                <Button
+                  type="button"
+                  onClick={handleAddCurrency}
+                  disabled={!newCurrency.value || !newCurrency.name || !newCurrency.icon || isValidatingCurrency}
+                  className="w-full"
+                >
+                  {isValidatingCurrency ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Validating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Currency
+                    </>
+                  )}
+                </Button>
+              </div>
+              {currencyValidationError && (
+                <div className="text-sm text-red-500">{currencyValidationError}</div>
+              )}
+              <div className="h-[300px] overflow-y-auto border rounded-md p-2">
+                {currencySymbols.map((currency) => (
+                  <div
+                    key={currency.value}
+                    className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-md"
                   >
-                    {isValidatingCurrency ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        Validating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Currency
-                      </>
-                    )}
-                  </Button>
-                </div>
-                {currencyValidationError && (
-                  <div className="text-sm text-red-500">{currencyValidationError}</div>
-                )}
-                <div className="h-[300px] overflow-y-auto border rounded-md p-2">
-                  {currencySymbols.map((currency) => (
-                    <div
-                      key={currency.value}
-                      className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-md"
-                    >
-                      <div>
-                        <span className="text-lg mr-2">{currency.icon}</span>
-                        <span className="font-medium">{currency.value}</span>
-                        <span className="text-gray-500 ml-2">({currency.name})</span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveCurrency(currency.value)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{currency.icon}</span>
+                      <span className="font-medium">{currency.value}</span>
+                      <span className="text-gray-500">({currency.name})</span>
                     </div>
-                  ))}
-                </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveCurrency(currency.value)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
           </TabsContent>
         </Tabs>
+
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleSave}>
-            Save Changes
-          </Button>
+          <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,5 +1,6 @@
-import { Asset, AssetFormData, EditAssetData } from '../types/asset';
+import { Asset, AssetFormData, EditAssetData, AssetSymbolInfo } from '../types/asset';
 import { isValidCryptoSymbol } from '../types/crypto';
+import { isValidCommoditySymbol } from '../types/commodities';
 
 const STORAGE_KEY = 'assets';
 
@@ -22,9 +23,13 @@ export function getAllAssets(): Asset[] {
 }
 
 export function saveAsset(data: AssetFormData): void {
-  // Validate the crypto symbol exists
-  if (!isValidCryptoSymbol(data.symbol)) {
-    throw new Error(`Invalid crypto symbol: ${data.symbol}`);
+  // Validate the symbol exists based on asset type
+  const isValid = data.assetType === 'CRYPTO' 
+    ? isValidCryptoSymbol(data.symbol.value)
+    : isValidCommoditySymbol(data.symbol.value);
+
+  if (!isValid) {
+    throw new Error(`Invalid ${data.assetType.toLowerCase()} symbol: ${data.symbol.value}`);
   }
 
   const assets = getAllAssets();
@@ -33,18 +38,18 @@ export function saveAsset(data: AssetFormData): void {
   if (data.transactionType === 'SELL') {
     // Get total quantity of this asset from previous buys and earnings
     const totalBought = assets
-      .filter(a => a.symbol === data.symbol && (a.transactionType === 'BUY' || a.transactionType === 'EARN'))
+      .filter(a => isSameSymbol(a.symbol, data.symbol) && (a.transactionType === 'BUY' || a.transactionType === 'EARN'))
       .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
       
     // Get total quantity already sold
     const totalSold = assets
-      .filter(a => a.symbol === data.symbol && a.transactionType === 'SELL')
+      .filter(a => isSameSymbol(a.symbol, data.symbol) && a.transactionType === 'SELL')
       .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
       
     const availableQuantity = totalBought - totalSold;
     
     if (data.purchaseQuantity > availableQuantity) {
-      throw new Error(`Cannot sell ${data.purchaseQuantity} ${data.symbol}. Only ${availableQuantity.toFixed(8)} available.`);
+      throw new Error(`Cannot sell ${data.purchaseQuantity} ${data.symbol.value}. Only ${availableQuantity.toFixed(8)} available.`);
     }
   }
 
@@ -65,6 +70,11 @@ export function saveAsset(data: AssetFormData): void {
   }
 }
 
+// Helper function to compare asset symbols
+function isSameSymbol(a: AssetSymbolInfo, b: AssetSymbolInfo): boolean {
+  return a.value === b.value;
+}
+
 export function updateAsset(id: string, data: EditAssetData): void {
   const assets = getAllAssets();
   const index = assets.findIndex(asset => asset.id === id);
@@ -73,31 +83,30 @@ export function updateAsset(id: string, data: EditAssetData): void {
     throw new Error('Asset not found');
   }
 
+  const asset = assets[index];
+  
   // For sell transactions, verify we have enough assets to sell
   if (data.transactionType === 'SELL') {
-    const symbol = assets[index].symbol;
-    const currentQuantity = assets[index].purchaseQuantity;
-    
-    // Calculate available quantity excluding the current asset
-    const otherAssets = assets.filter(a => a.id !== id);
-    const totalBought = otherAssets
-      .filter(a => a.symbol === symbol && (a.transactionType === 'BUY' || a.transactionType === 'EARN'))
+    // Get total quantity of this asset from previous buys and earnings
+    const totalBought = assets
+      .filter(a => isSameSymbol(a.symbol, asset.symbol) && (a.transactionType === 'BUY' || a.transactionType === 'EARN'))
       .reduce((sum, a) => sum + a.purchaseQuantity, 0);
-    
-    const totalSold = otherAssets
-      .filter(a => a.symbol === symbol && a.transactionType === 'SELL')
+      
+    // Get total quantity already sold
+    const totalSold = assets
+      .filter(a => isSameSymbol(a.symbol, asset.symbol) && a.transactionType === 'SELL' && a.id !== id)
       .reduce((sum, a) => sum + a.purchaseQuantity, 0);
-    
+      
     const availableQuantity = totalBought - totalSold;
     
-    if (data.purchaseQuantity > availableQuantity + currentQuantity) {
-      throw new Error(`Cannot update to ${data.purchaseQuantity} ${symbol}. Only ${(availableQuantity + currentQuantity).toFixed(8)} available.`);
+    if (data.purchaseQuantity > availableQuantity) {
+      throw new Error(`Cannot sell ${data.purchaseQuantity} ${asset.symbol.value}. Only ${availableQuantity.toFixed(8)} available.`);
     }
   }
 
   try {
     assets[index] = {
-      ...assets[index],
+      ...asset,
       ...data,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(assets));
@@ -138,26 +147,26 @@ export function deleteAsset(id: string): void {
 }
 
 // Add a new helper function to get available quantity
-export function getAvailableQuantity(symbol: string): number {
+export function getAvailableQuantity(symbol: AssetSymbolInfo): number {
   const assets = getAllAssets();
   
   const totalBought = assets
-    .filter(a => a.symbol === symbol && (a.transactionType === 'BUY' || a.transactionType === 'EARN'))
+    .filter(a => isSameSymbol(a.symbol, symbol) && (a.transactionType === 'BUY' || a.transactionType === 'EARN'))
     .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
     
   const totalSold = assets
-    .filter(a => a.symbol === symbol && a.transactionType === 'SELL')
+    .filter(a => isSameSymbol(a.symbol, symbol) && a.transactionType === 'SELL')
     .reduce((sum, asset) => sum + asset.purchaseQuantity, 0);
     
   return totalBought - totalSold;
 }
 
 // Add a new helper function to calculate average purchase price
-export function getAveragePurchasePrice(symbol: string): number {
+export function getAveragePurchasePrice(symbol: AssetSymbolInfo): number {
   const assets = getAllAssets();
   
   const buyTransactions = assets.filter(a => 
-    a.symbol === symbol && 
+    isSameSymbol(a.symbol, symbol) && 
     (a.transactionType === 'BUY' || a.transactionType === 'EARN')
   );
   
