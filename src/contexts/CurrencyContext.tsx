@@ -1,10 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Currency } from '../types/asset';
 
+const SETTINGS_KEY = 'settings';
+
+interface Settings {
+  openExchangeKey: string;
+  goldApiKey: string;
+}
+
+function getSettings(): Settings {
+  const storedSettings = localStorage.getItem(SETTINGS_KEY);
+  if (!storedSettings) return { openExchangeKey: '', goldApiKey: '' };
+  return JSON.parse(storedSettings);
+}
+
 interface CurrencyContextType {
   displayCurrency: Currency;
   setDisplayCurrency: (currency: Currency) => void;
-  exchangeRates: Record<Currency, number>;
   convertAmount: (amount: number, fromCurrency: Currency, toCurrency: Currency) => number;
 }
 
@@ -21,9 +33,14 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     // Fetch exchange rates from an API
     const fetchExchangeRates = async () => {
       try {
-        const API_KEY = import.meta.env.VITE_OPENEXCHANGE_API_KEY;
+        const { openExchangeKey } = getSettings();
+        if (!openExchangeKey) {
+          console.warn('OpenExchange API key not found in settings');
+          return;
+        }
+
         const response = await fetch(
-          `https://openexchangerates.org/api/latest.json?app_id=${API_KEY}&base=USD&symbols=MYR`
+          `https://openexchangerates.org/api/latest.json?app_id=${openExchangeKey}&base=USD&symbols=MYR`
         );
         const data = await response.json();
         if (data.rates) {
@@ -54,12 +71,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <CurrencyContext.Provider value={{ 
-      displayCurrency, 
-      setDisplayCurrency, 
-      exchangeRates, 
-      convertAmount 
-    }}>
+    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, convertAmount }}>
       {children}
     </CurrencyContext.Provider>
   );

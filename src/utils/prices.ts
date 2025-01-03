@@ -12,11 +12,24 @@ let lastCryptoPrices: PriceMap = {} as PriceMap;
 let lastCryptoFetchTime: number | null = null;
 const CRYPTO_CACHE_DURATION = 30 * 1000; // 30 seconds in milliseconds
 
+const SETTINGS_KEY = 'settings';
+
+interface Settings {
+  openExchangeKey: string;
+  goldApiKey: string;
+}
+
+function getSettings(): Settings {
+  const storedSettings = localStorage.getItem(SETTINGS_KEY);
+  if (!storedSettings) return { openExchangeKey: '', goldApiKey: '' };
+  return JSON.parse(storedSettings);
+}
+
 export async function fetchHistoricalGoldPrices(startDate: Date): Promise<void> {
   try {
-    const API_KEY = import.meta.env.VITE_GOLD_API_KEY;
-    if (!API_KEY) {
-      throw new Error('Gold API key not found in environment variables');
+    const { goldApiKey } = getSettings();
+    if (!goldApiKey) {
+      throw new Error('Gold API key not found in settings');
     }
 
     const currentMonthFirstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -31,7 +44,7 @@ export async function fetchHistoricalGoldPrices(startDate: Date): Promise<void> 
       try {
         const response = await fetch(`https://www.goldapi.io/api/XAU/USD/${formattedDate}`, {
           headers: {
-            'x-access-token': API_KEY
+            'x-access-token': goldApiKey
           }
         });
         
@@ -146,14 +159,14 @@ export async function fetchPrices(symbols: CryptoSymbol[]): Promise<PriceMap> {
         prices.GOLD = lastGoldPrice;
       } else {
         try {
-          const API_KEY = import.meta.env.VITE_GOLD_API_KEY;
-          if (!API_KEY) {
-            throw new Error('Gold API key not found in environment variables');
+          const { goldApiKey } = getSettings();
+          if (!goldApiKey) {
+            throw new Error('Gold API key not found in settings');
           }
           
           const response = await fetch('https://www.goldapi.io/api/XAU/USD', {
             headers: {
-              'x-access-token': API_KEY
+              'x-access-token': goldApiKey
             }
           });
           const data = await response.json();

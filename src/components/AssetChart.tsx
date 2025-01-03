@@ -10,10 +10,14 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { Asset } from '../types/asset';
+import { CryptoSymbol } from '../types/crypto';
 import { getAssetPriceHistory, PriceHistoryEntry } from '../utils/priceHistory';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useCurrency } from '../contexts/CurrencyContext';
+import { Button } from "./ui/button";
+import { RefreshCw } from "lucide-react";
+import { fetchHistoricalCryptoPrices, fetchHistoricalGoldPrices } from '../utils/prices';
 
 interface AssetChartProps {
   assets: Asset[];
@@ -31,7 +35,40 @@ interface ChartDataPoint {
 export function AssetChart({ assets }: AssetChartProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('SEPARATE');
   const [timeInterval, setTimeInterval] = useState<TimeInterval>('MONTHLY');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { displayCurrency, convertAmount } = useCurrency();
+
+  // Group assets by symbol and calculate net quantities considering all transaction types
+  const uniqueAssets = assets.reduce((acc, asset) => {
+    if (!acc[asset.symbol]) {
+      acc[asset.symbol] = {
+        ...asset,
+        purchaseQuantity: 0,
+        name: asset.name,
+        transactions: [] as Asset[]
+      };
+    }
+    // Store all transactions for this symbol
+    acc[asset.symbol].transactions.push(asset);
+    return acc;
+  }, {} as Record<string, Asset & { transactions: Asset[] }>);
+
+  // Calculate net quantity at any given date
+  const getNetQuantityAtDate = (transactions: Asset[], date: Date) => {
+    return transactions
+      .filter(t => new Date(t.purchaseDate) <= date)
+      .reduce((sum, t) => {
+        switch (t.transactionType) {
+          case 'BUY':
+          case 'EARN':
+            return sum + t.purchaseQuantity;
+          case 'SELL':
+            return sum - t.purchaseQuantity;
+          default:
+            return sum;
+        }
+      }, 0);
+  };
 
   const COLORS = [
     '#2563eb', // blue
@@ -106,7 +143,7 @@ export function AssetChart({ assets }: AssetChartProps) {
           totalValue: 0
         };
 
-        assets.forEach(asset => {
+        Object.values(uniqueAssets).forEach(asset => {
           const history = getAssetPriceHistory(asset.symbol);
           let price = asset.currentPrice; // Default to current price
 
@@ -118,10 +155,12 @@ export function AssetChart({ assets }: AssetChartProps) {
             price = historicalEntry.price;
           }
 
-          // Only include in total if the asset was purchased by this date
-          if (new Date(asset.purchaseDate) <= date) {
+          // Calculate net quantity at this date
+          const netQuantity = getNetQuantityAtDate(asset.transactions, date);
+          
+          if (netQuantity > 0) {
             // Convert the value to display currency
-            const valueInUSD = price * asset.purchaseQuantity;
+            const valueInUSD = price * netQuantity;
             dataPoint.totalValue += convertAmount(valueInUSD, 'USD', displayCurrency);
           }
         });
@@ -136,7 +175,7 @@ export function AssetChart({ assets }: AssetChartProps) {
           totalValue: 0
         };
 
-        assets.forEach(asset => {
+        Object.values(uniqueAssets).forEach(asset => {
           const history = getAssetPriceHistory(asset.symbol);
           let price = asset.currentPrice; // Default to current price
 
@@ -148,10 +187,12 @@ export function AssetChart({ assets }: AssetChartProps) {
             price = historicalEntry.price;
           }
 
-          // Only include value if the asset was purchased by this date
-          if (new Date(asset.purchaseDate) <= date) {
+          // Calculate net quantity at this date
+          const netQuantity = getNetQuantityAtDate(asset.transactions, date);
+          
+          if (netQuantity > 0) {
             // Convert the value to display currency
-            const valueInUSD = price * asset.purchaseQuantity;
+            const valueInUSD = price * netQuantity;
             dataPoint[asset.symbol] = convertAmount(valueInUSD, 'USD', displayCurrency);
           }
         });
@@ -163,11 +204,55 @@ export function AssetChart({ assets }: AssetChartProps) {
 
   const chartData = generateChartData();
 
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+
+    try {
+      // Get unique assets and their earliest dates
+      const uniqueAssetDates = assets.reduce((acc, asset) => {
+        if (!acc[asset.symbol]) {
+          acc[asset.symbol] = new Date(asset.purchaseDate);
+        } else {
+          const date = new Date(asset.purchaseDate);
+          if (date < acc[asset.symbol]) {
+            acc[asset.symbol] = date;
+          }
+        }
+        return acc;
+      }, {} as Record<string, Date>);
+
+      // Fetch historical prices for each asset
+      const fetchPromises = Object.entries(uniqueAssetDates).map(([symbol, date]) => {
+        if (symbol === 'GOLD') {
+          return fetchHistoricalGoldPrices(date);
+        } else {
+          return fetchHistoricalCryptoPrices(symbol as CryptoSymbol, date);
+        }
+      });
+
+      await Promise.all(fetchPromises);
+    } catch (error) {
+      console.error('Failed to refresh historical prices:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
         <CardTitle>Portfolio Performance</CardTitle>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
           <Tabs defaultValue={viewMode} onValueChange={(value: string) => setViewMode(value as ViewMode)}>
             <TabsList>
               <TabsTrigger value="MERGED">Combined</TabsTrigger>
@@ -213,7 +298,7 @@ export function AssetChart({ assets }: AssetChartProps) {
                   dot={false}
                 />
               ) : (
-                assets.map((asset, index) => (
+                Object.values(uniqueAssets).map((asset, index) => (
                   <Line
                     key={asset.symbol}
                     type="monotone"

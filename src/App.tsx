@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Wallet, Download, Upload } from 'lucide-react';
+import { LineChart, Wallet, Download, Upload, Settings } from 'lucide-react';
 import { Asset, AssetFormData, EditAssetData } from './types/asset';
 import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
@@ -12,11 +12,13 @@ import { getAllAssets, deleteAsset, updateAssetPrice, updateAsset, saveAsset } f
 import { fetchPrices } from './utils/prices';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
+import { SettingsDialog } from './components/SettingsDialog';
 
 function App() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     loadAssets();
@@ -228,6 +230,15 @@ function App() {
                       Import
                     </Button>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="flex items-center gap-2 min-w-[100px]"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -288,6 +299,11 @@ function App() {
           )}
         </div>
       </div>
+
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </CurrencyProvider>
   );
 }
