@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LineChart, Wallet, Download, Upload, Settings } from 'lucide-react';
-import { Asset, AssetFormData, EditAssetData } from './types/asset';
+import { Asset, AssetFormData, EditAssetData, initializeCurrencySymbols, loadCurrencySymbols, saveCurrencySymbols } from './types/asset';
 import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
 import { AssetChart } from './components/AssetChart';
@@ -15,8 +15,8 @@ import { fetchPrices } from './utils/prices';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 import { SettingsDialog } from './components/SettingsDialog';
-import { initializeCryptoSymbols } from './types/crypto';
-import { initializeCurrencySymbols } from './types/asset';
+import { initializeCryptoSymbols, loadCryptoSymbols, saveCryptoSymbols } from './types/crypto';
+import { getAllPriceHistory, savePriceHistory } from './utils/priceHistory';
 
 function App() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -30,9 +30,14 @@ function App() {
   useEffect(() => {
     const initialize = async () => {
       try {
+        console.log('Starting initialization...');
+        console.log('Initializing crypto symbols...');
         initializeCryptoSymbols();
+        console.log('Initializing currency symbols...');
         initializeCurrencySymbols();
+        console.log('Loading assets...');
         await loadAssets();
+        console.log('Initialization complete');
       } catch (error) {
         console.error('Failed to initialize:', error);
         setError('Failed to initialize application. Please refresh the page.');
@@ -95,13 +100,15 @@ function App() {
     setIsLoading(true);
     setError(null);
     try {
+      console.log('Starting to load assets...');
       const loadedAssets = getAllAssets();
       console.log('Loaded assets:', loadedAssets);
       setAssets(loadedAssets);
+      console.log('Assets set in state');
+      setIsLoading(false);
     } catch (error) {
       console.error('Failed to load assets:', error);
       setError('Failed to load assets. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -159,6 +166,11 @@ function App() {
   const handleExport = () => {
     const exportData = {
       assets: assets,
+      cryptoSymbols: loadCryptoSymbols(),
+      currencySymbols: loadCurrencySymbols(),
+      defaultCurrency: localStorage.getItem('defaultCurrency') || 'USD',
+      priceHistory: getAllPriceHistory(),
+      settings: localStorage.getItem('settings') ? JSON.parse(localStorage.getItem('settings')!) : {},
       exportDate: new Date().toISOString()
     };
 
@@ -185,11 +197,39 @@ function App() {
       const text = await file.text();
       const importData = JSON.parse(text);
 
+      // Validate import data structure
       if (!importData.assets || !Array.isArray(importData.assets)) {
-        const error = 'Invalid import file format: missing assets array';
-        console.error(error);
-        alert(error);
-        return;
+        throw new Error('Invalid import file format: missing assets array');
+      }
+
+      // Import crypto symbols if present
+      if (importData.cryptoSymbols) {
+        console.log('Importing crypto symbols...');
+        saveCryptoSymbols(importData.cryptoSymbols);
+      }
+
+      // Import currency symbols if present
+      if (importData.currencySymbols) {
+        console.log('Importing currency symbols...');
+        saveCurrencySymbols(importData.currencySymbols);
+      }
+
+      // Import default currency if present
+      if (importData.defaultCurrency) {
+        console.log('Importing default currency...');
+        localStorage.setItem('defaultCurrency', importData.defaultCurrency);
+      }
+
+      // Import settings if present
+      if (importData.settings) {
+        console.log('Importing settings...');
+        localStorage.setItem('settings', JSON.stringify(importData.settings));
+      }
+
+      // Import price history if present
+      if (importData.priceHistory) {
+        console.log('Importing price history...');
+        savePriceHistory(importData.priceHistory);
       }
 
       console.log(`Importing ${importData.assets.length} assets...`);
@@ -217,9 +257,11 @@ function App() {
 
       console.log('Import completed, reloading assets...');
       await loadAssets();
-      alert('Assets imported successfully!');
-    } catch (error) {
-      const errorMessage = 'Failed to import assets. Please check the file format.';
+      
+      // Reload the page to ensure all contexts are updated with imported data
+      window.location.reload();
+    } catch (error: any) {
+      const errorMessage = `Failed to import data: ${error.message}`;
       console.error(errorMessage, error);
       alert(errorMessage);
     }
