@@ -248,8 +248,8 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
             const transactions = assets.filter(a => getSymbolValue(a.symbol) === symbolValue);
             
             return (
-              <React.Fragment key={positionKeys.get(symbolValue)}>
-                <TableRow key={`position-${positionKeys.get(symbolValue)}`} className="cursor-pointer hover:bg-gray-50" onClick={() => toggleAssetExpanded(position.symbol)}>
+              <React.Fragment key={`fragment-${positionKeys.get(symbolValue)}`}>
+                <TableRow className="cursor-pointer hover:bg-gray-50" onClick={() => toggleAssetExpanded(position.symbol)}>
                   <TableCell>
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4" />
@@ -288,12 +288,12 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                 </TableRow>
                 
                 {isExpanded && (
-                  <TableRow key={`expanded-${positionKeys.get(symbolValue)}`}>
+                  <TableRow>
                     <TableCell colSpan={8} className="p-0">
                       <div className="bg-gray-50 p-4">
                         <Table>
                           <TableHeader>
-                            <TableRow key={`header-${positionKeys.get(symbolValue)}`}>
+                            <TableRow>
                               <TableHead>Type</TableHead>
                               <TableHead>Quantity</TableHead>
                               <TableHead>Price</TableHead>
