@@ -200,16 +200,11 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
     setExpandedAssets(newExpanded);
   };
 
-  const [positionKeys] = useState(() => new Map(netPositions.map(p => [
-    typeof p.symbol === 'string' ? p.symbol : (p.symbol as AssetSymbolInfo).value,
-    p.id
-  ])));
-
   return (
     <>
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow key="main-header">
             <TableHead className="w-[30px]"></TableHead>
             <TableHead>Asset Name</TableHead>
             <TableHead>Holdings</TableHead>
@@ -248,8 +243,8 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
             const transactions = assets.filter(a => getSymbolValue(a.symbol) === symbolValue);
             
             return (
-              <React.Fragment key={positionKeys.get(symbolValue)}>
-                <TableRow className="cursor-pointer hover:bg-gray-50" onClick={() => toggleAssetExpanded(position.symbol)}>
+              <React.Fragment key={symbolValue}>
+                <TableRow key={`position-${symbolValue}`} className="cursor-pointer hover:bg-gray-50" onClick={() => toggleAssetExpanded(position.symbol)}>
                   <TableCell>
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4" />
@@ -288,12 +283,12 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                 </TableRow>
                 
                 {isExpanded && (
-                  <TableRow>
+                  <TableRow key={`expanded-${symbolValue}`}>
                     <TableCell colSpan={8} className="p-0">
                       <div className="bg-gray-50 p-4">
                         <Table>
                           <TableHeader>
-                            <TableRow>
+                            <TableRow key={`header-${symbolValue}`}>
                               <TableHead>Type</TableHead>
                               <TableHead>Quantity</TableHead>
                               <TableHead>Price</TableHead>
@@ -309,7 +304,7 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                                 return direction * (new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
                               })
                               .map(transaction => (
-                              <TableRow key={transaction.id}>
+                              <TableRow key={`transaction-${transaction.id}`}>
                                 <TableCell>
                                   <span className={
                                     transaction.transactionType === 'BUY' ? 'text-green-600' : 
