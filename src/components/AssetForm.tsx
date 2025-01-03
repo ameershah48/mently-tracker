@@ -276,11 +276,16 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         <Input
           id="date"
           type="date"
-          value={formData.purchaseDate.toISOString().split('T')[0]}
-          onChange={e => setFormData(prev => ({
-            ...prev,
-            purchaseDate: new Date(e.target.value)
-          }))}
+          value={formData.purchaseDate instanceof Date && !isNaN(formData.purchaseDate.getTime()) 
+            ? formData.purchaseDate.toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0]}
+          onChange={e => {
+            const date = new Date(e.target.value);
+            setFormData(prev => ({
+              ...prev,
+              purchaseDate: !isNaN(date.getTime()) ? date : new Date()
+            }));
+          }}
         />
       </div>
 
