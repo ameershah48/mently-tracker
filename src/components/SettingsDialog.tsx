@@ -66,6 +66,14 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               onChange={(e) => setOpenExchangeKey(e.target.value)}
               placeholder="Enter OpenExchange API key"
             />
+            <a
+              href="https://openexchangerates.org/signup"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-500 hover:underline"
+            >
+              Register for OpenExchange API key
+            </a>
           </div>
           <div className="space-y-2">
             <Label htmlFor="goldapi">Gold API Key</Label>
@@ -76,6 +84,14 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               onChange={(e) => setGoldApiKey(e.target.value)}
               placeholder="Enter Gold API key"
             />
+            <a
+              href="https://www.goldapi.io/dashboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-500 hover:underline"
+            >
+              Register for Gold API key
+            </a>
           </div>
         </div>
         <DialogFooter>
