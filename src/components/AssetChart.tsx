@@ -40,8 +40,9 @@ export function AssetChart({ assets }: AssetChartProps) {
 
   // Group assets by symbol and calculate net quantities considering all transaction types
   const uniqueAssets = assets.reduce((acc, asset) => {
-    if (!acc[asset.symbol]) {
-      acc[asset.symbol] = {
+    const symbolValue = typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value;
+    if (!acc[symbolValue]) {
+      acc[symbolValue] = {
         ...asset,
         purchaseQuantity: 0,
         name: asset.name,
@@ -49,7 +50,7 @@ export function AssetChart({ assets }: AssetChartProps) {
       };
     }
     // Store all transactions for this symbol
-    acc[asset.symbol].transactions.push(asset);
+    acc[symbolValue].transactions.push(asset);
     return acc;
   }, {} as Record<string, Asset & { transactions: Asset[] }>);
 
@@ -193,7 +194,8 @@ export function AssetChart({ assets }: AssetChartProps) {
           if (netQuantity > 0) {
             // Convert the value to display currency
             const valueInUSD = price * netQuantity;
-            dataPoint[asset.symbol] = convertAmount(valueInUSD, 'USD', displayCurrency);
+            const symbolValue = typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value;
+            dataPoint[symbolValue] = convertAmount(valueInUSD, 'USD', displayCurrency);
           }
         });
 
@@ -224,10 +226,11 @@ export function AssetChart({ assets }: AssetChartProps) {
 
       // Fetch historical prices for each asset
       const fetchPromises = Object.entries(uniqueAssetDates).map(([symbol, date]) => {
-        if (symbol === 'GOLD') {
+        const symbolValue = typeof symbol === 'string' ? symbol : symbol.value;
+        if (symbolValue === 'GOLD') {
           return fetchHistoricalGoldPrices(date);
         } else {
-          return fetchHistoricalCryptoPrices(symbol as CryptoSymbol, date);
+          return fetchHistoricalCryptoPrices(symbolValue as CryptoSymbol, date);
         }
       });
 
@@ -298,17 +301,20 @@ export function AssetChart({ assets }: AssetChartProps) {
                   dot={false}
                 />
               ) : (
-                Object.values(uniqueAssets).map((asset, index) => (
-                  <Line
-                    key={asset.symbol}
-                    type="monotone"
-                    dataKey={asset.symbol}
-                    name={`${asset.name} Value`}
-                    stroke={COLORS[index % COLORS.length]}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                ))
+                Object.values(uniqueAssets).map((asset, index) => {
+                  const symbolValue = typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value;
+                  return (
+                    <Line
+                      key={symbolValue}
+                      type="monotone"
+                      dataKey={symbolValue}
+                      name={`${asset.name} Value`}
+                      stroke={COLORS[index % COLORS.length]}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  );
+                })
               )}
             </LineChart>
           </ResponsiveContainer>

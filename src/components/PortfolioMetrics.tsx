@@ -24,9 +24,9 @@ export function PortfolioMetrics({ assets }: PortfolioMetricsProps) {
     }>();
 
     assets.forEach(asset => {
-      const key = asset.symbol;
-      const existing = positions.get(key) || {
-        symbol: asset.symbol,
+      const symbolValue = typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value;
+      const existing = positions.get(symbolValue) || {
+        symbol: symbolValue,
         netQuantity: 0,
         totalBuyValue: 0,
         totalBuyCurrency: asset.purchaseCurrency,
@@ -48,7 +48,7 @@ export function PortfolioMetrics({ assets }: PortfolioMetricsProps) {
         existing.totalBuyValue += convertedBuyValue;
       }
 
-      positions.set(key, existing);
+      positions.set(symbolValue, existing);
     });
 
     // Calculate total buy value

@@ -34,11 +34,12 @@ export const AssetPieChart: React.FC<AssetPieChartProps> = ({ assets }) => {
   const mergedAssets = assets.reduce<Record<string, MergedAsset>>((acc, asset) => {
     const valueInUSD = asset.currentPrice * Math.max(0, asset.purchaseQuantity * (asset.transactionType === 'SELL' ? -1 : 1));
     const currentValue = convertAmount(valueInUSD, 'USD', displayCurrency);
+    const symbolValue = typeof asset.symbol === 'string' ? asset.symbol : asset.symbol.value;
     
-    if (!acc[asset.symbol]) {
-      acc[asset.symbol] = {
-        symbol: asset.symbol,
-        name: asset.symbol,
+    if (!acc[symbolValue]) {
+      acc[symbolValue] = {
+        symbol: symbolValue,
+        name: symbolValue,
         fullName: asset.name,
         totalQuantity: asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity,
         totalValue: currentValue,
@@ -48,11 +49,11 @@ export const AssetPieChart: React.FC<AssetPieChartProps> = ({ assets }) => {
         earnQuantity: asset.transactionType === 'EARN' ? asset.purchaseQuantity : 0
       };
     } else {
-      acc[asset.symbol].totalQuantity += asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity;
-      acc[asset.symbol].totalValue += currentValue;
-      if (asset.transactionType === 'BUY') acc[asset.symbol].buyQuantity += asset.purchaseQuantity;
-      if (asset.transactionType === 'SELL') acc[asset.symbol].sellQuantity += asset.purchaseQuantity;
-      if (asset.transactionType === 'EARN') acc[asset.symbol].earnQuantity += asset.purchaseQuantity;
+      acc[symbolValue].totalQuantity += asset.transactionType === 'SELL' ? -asset.purchaseQuantity : asset.purchaseQuantity;
+      acc[symbolValue].totalValue += currentValue;
+      if (asset.transactionType === 'BUY') acc[symbolValue].buyQuantity += asset.purchaseQuantity;
+      if (asset.transactionType === 'SELL') acc[symbolValue].sellQuantity += asset.purchaseQuantity;
+      if (asset.transactionType === 'EARN') acc[symbolValue].earnQuantity += asset.purchaseQuantity;
     }
     
     return acc;

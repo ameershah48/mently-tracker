@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LineChart, Wallet, Download, Upload, Settings } from 'lucide-react';
-import { Asset, AssetFormData, EditAssetData, initializeCurrencySymbols, loadCurrencySymbols, saveCurrencySymbols } from './types/asset';
+import { Asset, AssetFormData, EditAssetData, initializeCurrencySymbols, loadCurrencySymbols, saveCurrencySymbols, AssetType } from './types/asset';
 import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
 import { AssetChart } from './components/AssetChart';
@@ -245,13 +245,18 @@ function App() {
       for (const asset of importData.assets) {
         try {
           const assetData = {
-            symbol: asset.symbol,
+            symbol: {
+              value: asset.symbol,
+              label: asset.symbol,
+              name: asset.name
+            },
             name: asset.name,
             purchasePrice: asset.purchasePrice,
             purchaseQuantity: asset.purchaseQuantity,
             purchaseDate: new Date(asset.purchaseDate),
             purchaseCurrency: asset.purchaseCurrency,
-            transactionType: asset.transactionType
+            transactionType: asset.transactionType,
+            assetType: 'CRYPTO' as AssetType
           };
 
           console.log('Importing asset:', assetData);
