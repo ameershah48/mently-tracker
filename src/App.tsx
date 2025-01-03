@@ -296,29 +296,31 @@ function App() {
         <CurrencyProvider>
           <CommoditiesProvider>
             <div className="min-h-screen bg-background">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
                 {error && (
                   <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
                     {error}
                   </div>
                 )}
 
-                <Card className="mb-8">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                    <div className="flex items-center gap-4">
-                      <LineChart className="h-8 w-8 text-primary" />
-                      <CardTitle>Asset Tracker</CardTitle>
+                <Card className="mb-4 sm:mb-8">
+                  <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      <LineChart className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+                      <CardTitle className="text-lg sm:text-xl">
+                        Mently
+                      </CardTitle>
                       <CurrencySelector />
                     </div>
-                    <div className="flex items-center gap-6">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-6">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleExport}
-                          className="flex items-center gap-2 min-w-[100px]"
+                          className="flex items-center gap-1 sm:gap-2 text-sm"
                         >
-                          <Download className="h-4 w-4" />
+                          <Download className="h-3 w-3 sm:h-4 sm:w-4" />
                           Export
                         </Button>
                         <div className="relative">
@@ -331,9 +333,9 @@ function App() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="flex items-center gap-2 min-w-[100px]"
+                            className="flex items-center gap-1 sm:gap-2 text-sm"
                           >
-                            <Upload className="h-4 w-4" />
+                            <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
                             Import
                           </Button>
                         </div>
@@ -341,9 +343,9 @@ function App() {
                           variant="outline"
                           size="sm"
                           onClick={() => setIsSettingsOpen(true)}
-                          className="flex items-center gap-2 min-w-[100px]"
+                          className="flex items-center gap-1 sm:gap-2 text-sm"
                         >
-                          <Settings className="h-4 w-4" />
+                          <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
                           Settings
                         </Button>
                       </div>
@@ -351,14 +353,14 @@ function App() {
                   </CardHeader>
                 </Card>
 
-                <div className="mb-8">
+                <div className="mb-4 sm:mb-8">
                   <PortfolioMetrics assets={assets} />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-4 sm:mb-8">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Add New Asset</CardTitle>
+                      <CardTitle className="text-lg">Add New Asset</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <AssetForm
@@ -370,24 +372,24 @@ function App() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Portfolio Distribution</CardTitle>
+                      <CardTitle className="text-lg">Portfolio Distribution</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="overflow-x-auto">
                       <AssetPieChart assets={assets} />
                     </CardContent>
                   </Card>
                 </div>
 
-                <div className="mb-8">
+                <div className="mb-4 sm:mb-8 overflow-x-auto">
                   <AssetChart assets={assets} />
                 </div>
 
                 {assets.length > 0 ? (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Asset List</CardTitle>
+                      <CardTitle className="text-lg">Asset List</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="overflow-x-auto">
                       <AssetList
                         assets={assets}
                         onDelete={handleDeleteAsset}
@@ -397,7 +399,7 @@ function App() {
                   </Card>
                 ) : (
                   <Card>
-                    <CardContent className="text-center py-12">
+                    <CardContent className="text-center py-8 sm:py-12">
                       <p className="text-muted-foreground">No assets added yet. Add your first asset above!</p>
                     </CardContent>
                   </Card>

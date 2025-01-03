@@ -200,11 +200,16 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
     setExpandedAssets(newExpanded);
   };
 
+  const [positionKeys] = useState(() => new Map(netPositions.map(p => [
+    typeof p.symbol === 'string' ? p.symbol : (p.symbol as AssetSymbolInfo).value,
+    p.id
+  ])));
+
   return (
     <>
       <Table>
         <TableHeader>
-          <TableRow key="main-header">
+          <TableRow>
             <TableHead className="w-[30px]"></TableHead>
             <TableHead>Asset Name</TableHead>
             <TableHead>Holdings</TableHead>
@@ -243,8 +248,8 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
             const transactions = assets.filter(a => getSymbolValue(a.symbol) === symbolValue);
             
             return (
-              <React.Fragment key={symbolValue}>
-                <TableRow key={`position-${symbolValue}`} className="cursor-pointer hover:bg-gray-50" onClick={() => toggleAssetExpanded(position.symbol)}>
+              <React.Fragment key={positionKeys.get(symbolValue)}>
+                <TableRow key={`position-${positionKeys.get(symbolValue)}`} className="cursor-pointer hover:bg-gray-50" onClick={() => toggleAssetExpanded(position.symbol)}>
                   <TableCell>
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4" />
@@ -283,12 +288,12 @@ export function AssetList({ assets, onEdit, onDelete }: AssetListProps) {
                 </TableRow>
                 
                 {isExpanded && (
-                  <TableRow key={`expanded-${symbolValue}`}>
+                  <TableRow key={`expanded-${positionKeys.get(symbolValue)}`}>
                     <TableCell colSpan={8} className="p-0">
                       <div className="bg-gray-50 p-4">
                         <Table>
                           <TableHeader>
-                            <TableRow key={`header-${symbolValue}`}>
+                            <TableRow key={`header-${positionKeys.get(symbolValue)}`}>
                               <TableHead>Type</TableHead>
                               <TableHead>Quantity</TableHead>
                               <TableHead>Price</TableHead>

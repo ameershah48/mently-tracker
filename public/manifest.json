@@ -1,0 +1,18 @@
+{
+  "short_name": "Mently",
+  "name": "Mently - Smart Asset Portfolio Tracker",
+  "icons": [
+    {
+      "src": "/wallet.svg",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "description": "Track and manage your crypto, stocks, and other assets in one place.",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "productivity", "utilities"]
+} 
