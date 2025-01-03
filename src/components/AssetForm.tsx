@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { saveAsset } from '../utils/db';
-import { CRYPTO_OPTIONS } from '../types/crypto';
+import { CryptoSymbolInfo, loadCryptoSymbols } from '../types/crypto';
 import { AssetFormData, Currency, TransactionType } from '../types/asset';
 import { Label } from './ui/label';
 import { Input } from './ui/Input';
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from './ui/Select';
 import { Loader2 } from "lucide-react";
+import { Combobox } from './ui/combobox';
 
 interface AssetFormProps {
   onSubmit: (data: AssetFormData) => Promise<void>;
@@ -22,9 +23,10 @@ interface AssetFormProps {
 
 export function AssetForm({ onSubmit, onError }: AssetFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [cryptoOptions, setCryptoOptions] = useState<CryptoSymbolInfo[]>([]);
   const [formData, setFormData] = useState<AssetFormData>({
-    symbol: 'BTC',
-    name: 'Bitcoin',
+    symbol: '',
+    name: '',
     purchaseQuantity: 0,
     purchasePrice: 0,
     purchaseCurrency: 'USD',
@@ -32,8 +34,43 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
     transactionType: 'BUY',
   });
 
+  // Load crypto symbols and set initial form data
+  useEffect(() => {
+    const loadSymbols = () => {
+      try {
+        const symbols = loadCryptoSymbols();
+        console.log('Loaded symbols in AssetForm:', symbols);
+        setCryptoOptions(symbols);
+        
+        // Set initial symbol and name if available and not already set
+        if (symbols.length > 0 && !formData.symbol) {
+          setFormData(prev => ({
+            ...prev,
+            symbol: symbols[0].value,
+            name: symbols[0].name,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load crypto symbols:', error);
+        onError(new Error('Failed to load available cryptocurrencies'));
+      }
+    };
+
+    loadSymbols();
+
+    // Set up an interval to check for symbol changes
+    const interval = setInterval(loadSymbols, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.symbol || !formData.name) {
+      onError(new Error('Please select a cryptocurrency'));
+      return;
+    }
+
     setIsLoading(true);
     try {
       await saveAsset(formData);
@@ -43,33 +80,34 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         fetchHistoricalGoldPrices(formData.purchaseDate).catch(error => {
           console.error('Failed to fetch historical gold prices:', error);
         });
-      } else if (CRYPTO_OPTIONS.some(option => option.value === formData.symbol)) {
+      } else {
         fetchHistoricalCryptoPrices(formData.symbol, formData.purchaseDate).catch(error => {
           console.error(`Failed to fetch historical ${formData.symbol} prices:`, error);
         });
       }
       
       await onSubmit(formData);
-      // Reset form
-      setFormData({
-        symbol: 'BTC',
-        name: 'Bitcoin',
+      // Reset form but keep the current symbol
+      setFormData(prev => ({
+        ...prev,
         purchaseQuantity: 0,
         purchasePrice: 0,
         purchaseCurrency: 'USD',
         purchaseDate: new Date(),
         transactionType: 'BUY',
-      });
-    } catch (error) {
-      onError(error as Error);
+      }));
+    } catch (error: any) {
+      console.error('Form submission error:', error);
+      onError(error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleAssetSelect = (value: string) => {
-    const selectedAsset = CRYPTO_OPTIONS.find(option => option.value === value);
+    const selectedAsset = cryptoOptions.find(option => option.value === value);
     if (selectedAsset) {
+      console.log('Selected asset:', selectedAsset);
       setFormData(prev => ({
         ...prev,
         symbol: selectedAsset.value,
@@ -104,21 +142,17 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="asset">Asset</Label>
-        <Select
+        <Combobox
+          options={cryptoOptions}
           value={formData.symbol}
           onValueChange={handleAssetSelect}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select an asset" />
-          </SelectTrigger>
-          <SelectContent>
-            {CRYPTO_OPTIONS.map(option => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Select an asset"
+        />
+        {cryptoOptions.length === 0 && (
+          <div className="text-sm text-yellow-600">
+            No cryptocurrencies available. Please add some in settings.
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -186,7 +220,7 @@ export function AssetForm({ onSubmit, onError }: AssetFormProps) {
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button type="submit" className="w-full" disabled={isLoading || cryptoOptions.length === 0}>
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
